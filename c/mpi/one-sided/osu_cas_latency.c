@@ -20,8 +20,31 @@ void run_cas_with_lock (int, enum WINDOW);
 void run_cas_with_fence (int, enum WINDOW);
 void run_cas_with_lock_all (int, enum WINDOW);
 void run_cas_with_flush (int, enum WINDOW);
-void run_cas_with_flush_local (int, enum WINDOW);
+void run_cas_with_flush_local (int, enum WINDOW, MPI_Datatype dtype_test);
 void run_cas_with_pscw (int, enum WINDOW);
+
+static int mpi_types_count() {
+    return 4;
+}
+static MPI_Datatype mpi_types_index_to_value(int type_index) {
+    switch(type_index)
+    {
+        case 0: return MPI_INT8_T;
+        case 1: return MPI_UINT8_T;
+        case 2: return MPI_INT16_T;
+        case 3: return MPI_UINT16_T;
+        default: return MPI_DATATYPE_NULL;
+    }
+}
+static const char* mpi_types_index_to_name(int type_index) {
+    switch (type_index) {
+        case 0: return "MPI_INT8_T";
+        case 1: return "MPI_UINT8_T";
+        case 2: return "MPI_INT16_T";
+        case 3: return "MPI_UINT16_T";
+        default: return "Error: MPI_Datatype not recognized.";
+    }
+}
 
 int main (int argc, char *argv[])
 {
@@ -34,7 +57,7 @@ int main (int argc, char *argv[])
     options.subtype = LAT;
     options.synctype = ALL_SYNC;
     options.max_message_size = 1 << 20;
-
+    
     set_header(HEADER);
     set_benchmark_name("osu_cas_latency");
 
@@ -97,27 +120,34 @@ int main (int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    print_header_one_sided(rank, options.win, options.sync);
+    for (int jtype_test=0; jtype_test<mpi_types_count(); jtype_test++)
+    {
+        char dtype_name_str[128];
 
-    switch (options.sync) {
-        case LOCK:
-            run_cas_with_lock(rank, options.win);
-            break;
-        case LOCK_ALL:
-            run_cas_with_lock_all(rank, options.win);
-            break;
-        case PSCW:
-            run_cas_with_pscw(rank, options.win);
-            break;
-        case FENCE:
-            run_cas_with_fence(rank, options.win);
-            break;
-        case FLUSH_LOCAL:
-            run_cas_with_flush_local(rank, options.win);
-            break;
-        default:
-            run_cas_with_flush(rank, options.win);
-            break;
+
+        print_header_one_sided(rank, options.win, options.sync);
+        printf("Test MPI_Datatype: %s\n", mpi_types_index_to_name(jtype_test));
+
+        switch (options.sync) {
+            case LOCK:
+                run_cas_with_lock(rank, options.win);
+                break;
+            case LOCK_ALL:
+                run_cas_with_lock_all(rank, options.win);
+                break;
+            case PSCW:
+                run_cas_with_pscw(rank, options.win);
+                break;
+            case FENCE:
+                run_cas_with_fence(rank, options.win);
+                break;
+            case FLUSH_LOCAL:
+                run_cas_with_flush_local(rank, options.win, mpi_types_index_to_value(jtype_test) );
+                break;
+            default:
+                run_cas_with_flush(rank, options.win);
+                break;
+        }
     }
 
     MPI_CHECK(MPI_Finalize());
@@ -261,7 +291,7 @@ void run_cas_with_lock_all (int rank, enum WINDOW type)
 }
 
 /*Run CAS with flush */
-void run_cas_with_flush_local (int rank, enum WINDOW type)
+void run_cas_with_flush_local (int rank, enum WINDOW type, MPI_Datatype dtype_test)
 {
     int i = 0;
     double t_graph_start = 0.0, t_graph_end = 0.0;
@@ -294,7 +324,7 @@ void run_cas_with_flush_local (int rank, enum WINDOW type)
             if (i >= options.skip) {
                 t_graph_start = MPI_Wtime();
             }
-            MPI_CHECK(MPI_Compare_and_swap(sbuf, cbuf, tbuf, MPI_LONG_LONG, 1, disp, win));
+            MPI_CHECK(MPI_Compare_and_swap(sbuf, cbuf, tbuf, dtype_test, 1, disp, win));
             MPI_CHECK(MPI_Win_flush_local(1, win));
             if (i >= options.skip) {
                 t_graph_end = MPI_Wtime();

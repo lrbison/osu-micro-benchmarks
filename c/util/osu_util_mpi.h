@@ -159,3 +159,7 @@ size_t omb_ddt_assign(MPI_Datatype *datatype, MPI_Datatype base_datatype,
 void omb_ddt_free(MPI_Datatype *datatype);
 size_t omb_ddt_get_size(size_t size);
 void omb_ddt_append_stats(size_t omb_ddt_transmit_size);
+
+int atomic_data_validation_setup(MPI_Datatype datatype, int jrank, void *buf, size_t buf_size);
+int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, void *addr, void *res, size_t buf_size, _Bool check_addr, _Bool check_result);
+int atomic_data_validation_print_summary();
