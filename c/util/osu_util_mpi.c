@@ -206,7 +206,9 @@ void usage_one_sided (char const * name)
     fprintf(stdout, "                                 [PATH]         //PAPI output file path\n");
 #endif
     fprintf(stdout, "  -i, --iterations ITER       number of iterations for timing (default 10000)\n");
-
+    if (options.show_validation) {
+        fprintf(stdout, "  -c, --validation            Enable or disable validation. Disabled by default. \n");
+    }
     fprintf(stdout, "  -h, --help                  print this help message\n");
     fflush(stdout);
 }
@@ -534,10 +536,14 @@ void print_header_one_sided (int rank, enum WINDOW win, enum SYNC sync)
                        'M' == options.dst ? "MANAGED (M)" : ('D' == options.dst ? "DEVICE (D)" : "HOST (H)"));
             default:
                 if (options.subtype == BW) {
-                    fprintf(stdout, "%-*s%*s\n", 10, "# Size", FIELD_WIDTH, "Bandwidth (MB/s)");
+                    fprintf(stdout, "%-*s%*s", 10, "# Size", FIELD_WIDTH, "Bandwidth (MB/s)");
                 } else {
-                    fprintf(stdout, "%-*s%*s\n", 10, "# Size", FIELD_WIDTH, "Latency (us)");
+                    fprintf(stdout, "%-*s%*s", 10, "# Size", FIELD_WIDTH, "Latency (us)");
                 }
+                if (options.validate) {
+                    fprintf(stdout, "%*s", FIELD_WIDTH, "Validation");
+                }
+                fprintf(stdout, "\n");
                 fflush(stdout);
         }
     }
