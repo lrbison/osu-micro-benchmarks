@@ -48,6 +48,12 @@ void run_fop_with_flush (int, enum WINDOW);
 void run_fop_with_flush_local (int, enum WINDOW);
 void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, MPI_Op op);
 
+typedef enum type_of_enum {
+    FI_TYPE_ATOMIC_TYPE,
+    FI_TYPE_ATOMIC_OP
+} type_of_enum;
+char* fi_tostr(void *val, type_of_enum type_type);
+
 int main (int argc, char *argv[])
 {
     int         rank,nprocs;
@@ -60,11 +66,24 @@ int main (int argc, char *argv[])
     options.subtype = LAT;
     options.synctype = ALL_SYNC;
 
-    MPI_Datatype dtype_list[14] = {MPI_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,
-                                  MPI_INT, MPI_UNSIGNED, MPI_LONG_LONG, MPI_UNSIGNED_LONG_LONG,
-                                  MPI_FLOAT, MPI_DOUBLE, MPI_LONG_DOUBLE,
-                                  MPI_C_FLOAT_COMPLEX, MPI_C_DOUBLE_COMPLEX, MPI_C_LONG_DOUBLE_COMPLEX};
-    MPI_Op op_list[4] = {MPI_MAX, MPI_MIN, MPI_SUM, MPI_PROD};
+    char op_name[32] = {'\0'};
+    char type_name[32] = {'\0'};
+
+    MPI_Datatype dtype_list[] = { 
+        MPI_SIGNED_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,
+        MPI_INT, MPI_UNSIGNED, MPI_LONG_LONG, MPI_UNSIGNED_LONG_LONG,
+        MPI_FLOAT, MPI_DOUBLE, MPI_LONG_DOUBLE,
+        MPI_C_FLOAT_COMPLEX, MPI_C_DOUBLE_COMPLEX, MPI_C_LONG_DOUBLE_COMPLEX};
+    MPI_Op op_list[] = {
+        MPI_MAX, MPI_MIN,
+        MPI_SUM, MPI_PROD,
+        MPI_LAND, //MPI_BAND,
+        MPI_LOR, //MPI_BOR,
+        MPI_LXOR, //MPI_BXOR,
+    };
+    const int nops = sizeof(op_list)/sizeof(op_list[0]);
+    const int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
+    int type_name_size = 0;
 
 
     set_header(HEADER);
@@ -137,13 +156,18 @@ int main (int argc, char *argv[])
     }
 
 
-    for (int jdata_type = 0; jdata_type < sizeof(dtype_list); jdata_type++) {
-    for (int jop = 0; jop < sizeof(op_list); jop++) {
+    for (int jdata_type = 0; jdata_type < ntypes; jdata_type++) {
+    for (int jop = 0; jop < nops; jop++) {
+
+    // if (op_list[jop] != MPI_SUM) continue;
+    //if (dtype_list[jdata_type] != MPI_C_FLOAT_COMPLEX) continue;
+    MPI_Type_get_name(dtype_list[jdata_type], type_name, &type_name_size);
+    printf("Starting OP %s on Datatype %s\n", fi_tostr(&op_list[jop], FI_TYPE_ATOMIC_OP),type_name);
+
+    if ( !is_mpi_op_allowed(dtype_list[jdata_type], op_list[jop]) )
+        continue;
 
     print_header_one_sided(rank, options.win, options.sync);
-
-    //if (jop > 0) break;
-    if (jdata_type > 0) break;
 
     switch (options.sync) {
         case LOCK:
@@ -225,7 +249,6 @@ void run_fop_with_flush_local (int rank, enum WINDOW type)
     atomic_data_validation_setup(MPI_LONG_LONG, rank, sbuf, options.max_message_size);
     atomic_data_validation_setup(MPI_LONG_LONG, rank, tbuf, options.max_message_size);
 
-
     if (rank == 0) {
         if (type == WIN_DYNAMIC) {
             disp = disp_remote;
@@ -239,11 +262,8 @@ void run_fop_with_flush_local (int rank, enum WINDOW type)
             if (i >= options.skip) {
                 t_graph_start = MPI_Wtime();
             }
-            printf("BEFORE: Tbuf is %lld\n",*(long long*)tbuf);
             MPI_CHECK(MPI_Fetch_and_op(sbuf, tbuf, MPI_LONG_LONG, 1, disp, MPI_SUM, win));
-            printf("AFTER1: Tbuf is %lld\n",*(long long*)tbuf);
             MPI_CHECK(MPI_Win_flush_local(1, win));
-            printf("AFTER2: Tbuf is %lld\n",*(long long*)tbuf);
             if (i >= options.skip) {
                 t_graph_end = MPI_Wtime();
                 if (options.graph) {
@@ -548,7 +568,7 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
     if (win_type == WIN_DYNAMIC) {
         disp = disp_remote;
     }
-
+    
     if (rank == 0) {
         destrank = 1;
         MPI_CHECK(MPI_Group_incl(comm_group, 1, &destrank, &group));
@@ -559,6 +579,11 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
             atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
             atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
             atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+
+            // printf("%d: BEFORE: Tbuf is %lld\n",rank,*(long long*)tbuf);
+            // printf("%d: BEFORE: Sbuf is %lld\n",rank,*(long long*)sbuf);
+            // printf("%d: BEFORE: win_base is %lld\n",rank,*(long long*)win_base);
+
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             MPI_CHECK(MPI_Win_start (group, 0, win));
 
@@ -571,9 +596,19 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
                 t_graph_start = MPI_Wtime();
             }
             MPI_CHECK(MPI_Fetch_and_op(sbuf, tbuf, data_type, 1, disp, op, win));
+            // printf("%d: AFTER1: Tbuf is %lld\n",rank,*(long long*)tbuf);
+            // printf("%d: AFTER1: Sbuf is %lld\n",rank,*(long long*)sbuf);
+            // printf("%d: AFTER1: win_base is %lld\n",rank,*(long long*)win_base);
             MPI_CHECK(MPI_Win_complete(win));
+            // printf("%d: AFTER2: Tbuf is %lld\n",rank,*(long long*)tbuf);
+            // printf("%d: AFTER2: Sbuf is %lld\n",rank,*(long long*)sbuf);
+            // printf("%d: AFTER2: win_base is %lld\n",rank,*(long long*)win_base);
             MPI_CHECK(MPI_Win_post(group, 0, win));
             MPI_CHECK(MPI_Win_wait(win));
+            MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+            // printf("%d: AFTER3: Tbuf is %lld\n",rank,*(long long*)tbuf);
+            // printf("%d: AFTER3: Sbuf is %lld\n",rank,*(long long*)sbuf);
+            // printf("%d: AFTER3: win_base is %lld\n",rank,*(long long*)win_base);
             if (i >= options.skip) {
                 t_graph_end = MPI_Wtime();
                 if (options.graph) {
@@ -597,6 +632,9 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
             atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
             atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
             atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+            // printf("%d: BEFORE: Tbuf is %lld\n",rank,*(long long*)tbuf);
+            // printf("%d: BEFORE: Sbuf is %lld\n",rank,*(long long*)sbuf);
+            // printf("%d: BEFORE: win_base is %lld\n",rank,*(long long*)win_base);
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             if (i == options.skip) {
                 omb_papi_start(&papi_eventset);
@@ -604,10 +642,19 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
             MPI_CHECK(MPI_Win_post(group, 0, win));
             MPI_CHECK(MPI_Win_wait(win));
             MPI_CHECK(MPI_Win_start(group, 0, win));
+            // printf("%d: AFTER1: Tbuf is %lld\n",rank,*(long long*)tbuf);
+            // printf("%d: AFTER1: Sbuf is %lld\n",rank,*(long long*)sbuf);
+            // printf("%d: AFTER1: win_base is %lld\n",rank,*(long long*)win_base);
 
             MPI_CHECK(MPI_Fetch_and_op(sbuf, tbuf, data_type, 0, disp, op, win));
+            // printf("%d: AFTER2: Tbuf is %lld\n",rank,*(long long*)tbuf);
+            // printf("%d: AFTER2: Sbuf is %lld\n",rank,*(long long*)sbuf);
+            // printf("%d: AFTER2: win_base is %lld\n",rank,*(long long*)win_base);
             MPI_CHECK(MPI_Win_complete(win));
-
+            // printf("%d: AFTER3: Tbuf is %lld\n",rank,*(long long*)tbuf);
+            // printf("%d: AFTER3: Sbuf is %lld\n",rank,*(long long*)sbuf);
+            // printf("%d: AFTER3: win_base is %lld\n",rank,*(long long*)win_base);
+            MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 1);
         }
     }

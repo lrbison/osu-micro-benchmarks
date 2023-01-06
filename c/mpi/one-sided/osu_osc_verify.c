@@ -93,7 +93,7 @@ char* fi_tostr(void *val, type_of_enum type_type) {
 	if (type_type == FI_TYPE_ATOMIC_TYPE) {
 		MPI_Datatype type = *(MPI_Datatype*)val;
 		if (type == MPI_DATATYPE_NULL)		sprintf(fi_str_output,"%s", "MPI_DATATYPE_NULL");
-		if (type == MPI_CHAR)			sprintf(fi_str_output,"%s", "MPI_CHAR");
+		if (type == MPI_SIGNED_CHAR)		sprintf(fi_str_output,"%s", "MPI_SIGNED_CHAR");
 		if (type == MPI_UNSIGNED_CHAR)		sprintf(fi_str_output,"%s", "MPI_UNSIGNED_CHAR");
 		if (type == MPI_SHORT)			sprintf(fi_str_output,"%s", "MPI_SHORT");
 		if (type == MPI_UNSIGNED_SHORT)		sprintf(fi_str_output,"%s", "MPI_UNSIGNED_SHORT");
@@ -147,7 +147,7 @@ int mpi_op_enumerate(MPI_Op op) {
 
 int mpi_dtype_enumerate(MPI_Datatype dtype) {
   if (dtype == MPI_DATATYPE_NULL)       return 0;
-  if (dtype == MPI_CHAR)                return 1;
+  if (dtype == MPI_SIGNED_CHAR)         return 1;
   if (dtype == MPI_UNSIGNED_CHAR)       return 2;
   if (dtype == MPI_SHORT)               return 3;
   if (dtype == MPI_UNSIGNED_SHORT)      return 4;
@@ -162,12 +162,12 @@ int mpi_dtype_enumerate(MPI_Datatype dtype) {
   if (dtype == MPI_LONG_DOUBLE)         return 13;
   if (dtype == MPI_C_FLOAT_COMPLEX)     return 14;
   if (dtype == MPI_C_DOUBLE_COMPLEX)    return 15;
-    if (dtype == MPI_C_LONG_DOUBLE_COMPLEX) return 16;
+  if (dtype == MPI_C_LONG_DOUBLE_COMPLEX) return 16;
   return -1;
 }
 // these must match the above routine!
 #define ENUM_OF_DMPI_DATATYPE_NULL 	0
-#define ENUM_OF_DMPI_CHAR 		1
+#define ENUM_OF_DMPI_SIGNED_CHAR	1
 #define ENUM_OF_DMPI_UNSIGNED_CHAR	2
 #define ENUM_OF_DMPI_SHORT		3
 #define ENUM_OF_DMPI_UNSIGNED_SHORT	4
@@ -295,7 +295,7 @@ static void atomic_dv_record(MPI_Datatype dtype, MPI_Op op, bool failed, bool ch
 #define ATOM_FOR_CPLX_DMPI_CSWAP_GE(a,ao,b,c,absfun) if (absfun(c) >= absfun(a)) {(ao) = (b);}
 #define ATOM_FOR_CPLX_DMPI_CSWAP_GT(a,ao,b,c,absfun) if (absfun(c) >  absfun(a)) {(ao) = (b);}
 
-#define ATOM_CTYPE_FOR_DMPI_CHAR char
+#define ATOM_CTYPE_FOR_DMPI_SIGNED_CHAR char
 #define ATOM_CTYPE_FOR_DMPI_UNSIGNED_CHAR unsigned char
 #define ATOM_CTYPE_FOR_DMPI_SHORT short
 #define ATOM_CTYPE_FOR_DMPI_UNSIGNED_SHORT unsigned short
@@ -306,13 +306,13 @@ static void atomic_dv_record(MPI_Datatype dtype, MPI_Op op, bool failed, bool ch
 #define ATOM_CTYPE_FOR_DMPI_LONG_LONG long long
 #define ATOM_CTYPE_FOR_DMPI_UNSIGNED_LONG_LONG unsigned long long
 
-#define ATOM_CTYPE_FOR_MPI_FLOAT float
-#define ATOM_CTYPE_FOR_MPI_DOUBLE double
-#define ATOM_CTYPE_FOR_MPI_LONG_DOUBLE long double
+#define ATOM_CTYPE_FOR_DMPI_FLOAT float
+#define ATOM_CTYPE_FOR_DMPI_DOUBLE double
+#define ATOM_CTYPE_FOR_DMPI_LONG_DOUBLE long double
 
-#define ATOM_CTYPE_FOR_MPI_C_FLOAT_COMPLEX float complex
-#define ATOM_CTYPE_FOR_MPI_C_DOUBLE_COMPLEX double complex
-#define ATOM_CTYPE_FOR_MPI_C_LONG_DOUBLE_COMPLEX long double complex
+#define ATOM_CTYPE_FOR_DMPI_C_FLOAT_COMPLEX float complex
+#define ATOM_CTYPE_FOR_DMPI_C_DOUBLE_COMPLEX double complex
+#define ATOM_CTYPE_FOR_DMPI_C_LONG_DOUBLE_COMPLEX long double complex
 
 // this macro is for expansion inside the perform_atomic_op function
 // and uses variables local to that function.
@@ -383,32 +383,33 @@ case ftype*MPI_OP_COUNT + fop:						\
 	atomic_case(dtype, DMPI_PROD)			\
 	atomic_case(dtype, DMPI_LOR)			\
 	atomic_case(dtype, DMPI_LAND)			\
-	atomic_case(dtype, DMPI_LXOR)			\
-	atomic_case(dtype, FI_ATOMIC_READ)		\
-	atomic_case(dtype, FI_ATOMIC_WRITE)		\
-	atomic_case_compare(dtype, FI_CSWAP)	\
-	atomic_case_compare(dtype, FI_CSWAP_NE)	\
-	atomic_case_compare(dtype, FI_CSWAP_LE)	\
-	atomic_case_compare(dtype, FI_CSWAP_LT)	\
-	atomic_case_compare(dtype, FI_CSWAP_GE)	\
-	atomic_case_compare(dtype, FI_CSWAP_GT)
+	atomic_case(dtype, DMPI_LXOR)			
+	// atomic_case(dtype, FI_ATOMIC_READ)		\
+	// atomic_case(dtype, FI_ATOMIC_WRITE)		\
+	// atomic_case_compare(dtype, FI_CSWAP)	\
+	// atomic_case_compare(dtype, FI_CSWAP_NE)	\
+	// atomic_case_compare(dtype, FI_CSWAP_LE)	\
+	// atomic_case_compare(dtype, FI_CSWAP_LT)	\
+	// atomic_case_compare(dtype, FI_CSWAP_GE)	\
+	// atomic_case_compare(dtype, FI_CSWAP_GT)
 
 #define atomic_complex_float_ops(dtype, absfun)			\
-	atomic_case_cplx(dtype, MPI_MIN, absfun)			\
-	atomic_case_cplx(dtype, MPI_MAX, absfun)			\
-	atomic_case(dtype, MPI_SUM)				\
-	atomic_case(dtype, MPI_PROD)				\
-	atomic_case(dtype, MPI_LOR)				\
-	atomic_case(dtype, MPI_LAND)				\
-	atomic_case(dtype, MPI_LXOR)				\
-	atomic_case(dtype, FI_ATOMIC_READ)			\
-	atomic_case(dtype, FI_ATOMIC_WRITE)			\
-	atomic_case_compare(dtype, FI_CSWAP)			\
-	atomic_case_compare(dtype, FI_CSWAP_NE)			\
-	atomic_case_compare_cplx(dtype, FI_CSWAP_LE, absfun)	\
-	atomic_case_compare_cplx(dtype, FI_CSWAP_LT, absfun)	\
-	atomic_case_compare_cplx(dtype, FI_CSWAP_GE, absfun)	\
-	atomic_case_compare_cplx(dtype, FI_CSWAP_GT, absfun)
+	atomic_case(dtype, DMPI_SUM)				\
+	atomic_case(dtype, DMPI_PROD)				
+	// atomic_case_cplx(dtype, MPI_MIN, absfun)			
+	// atomic_case_cplx(dtype, MPI_MAX, absfun)			
+	
+	// atomic_case(dtype, MPI_LOR)				\
+	// atomic_case(dtype, MPI_LAND)				\
+	// atomic_case(dtype, MPI_LXOR)				\
+	// atomic_case(dtype, FI_ATOMIC_READ)			\
+	// atomic_case(dtype, FI_ATOMIC_WRITE)			\
+	// atomic_case_compare(dtype, FI_CSWAP)			\
+	// atomic_case_compare(dtype, FI_CSWAP_NE)			\
+	// atomic_case_compare_cplx(dtype, FI_CSWAP_LE, absfun)	\
+	// atomic_case_compare_cplx(dtype, FI_CSWAP_LT, absfun)	\
+	// atomic_case_compare_cplx(dtype, FI_CSWAP_GE, absfun)	\
+	// atomic_case_compare_cplx(dtype, FI_CSWAP_GT, absfun)
 
 
 int perform_atomic_op(	MPI_Datatype dtype,
@@ -422,23 +423,23 @@ int perform_atomic_op(	MPI_Datatype dtype,
     int op_enumeration = mpi_op_enumerate(op);
     int dtype_enumeration = mpi_dtype_enumerate(dtype);
 	switch(dtype_enumeration*MPI_OP_COUNT + op_enumeration) {
-		atomic_int_ops(DMPI_CHAR)
-		// atomic_int_ops(MPI_UNSIGNED_CHAR)
-		// atomic_int_ops(DMPI_SHORT)
-		// atomic_int_ops(DMPI_MPI_UNSIGNED_SHORT)
-		// atomic_int_ops(DMPI_INT)
-		// atomic_int_ops(DMPI_UNSIGNED)
+		atomic_int_ops(DMPI_SIGNED_CHAR)
+		atomic_int_ops(DMPI_UNSIGNED_CHAR)
+		atomic_int_ops(DMPI_SHORT)
+		atomic_int_ops(DMPI_UNSIGNED_SHORT)
+		atomic_int_ops(DMPI_INT)
+		atomic_int_ops(DMPI_UNSIGNED)
 		atomic_int_ops(DMPI_LONG_LONG)
-		// atomic_int_ops(DMPI_UNSIGNED_LONG)
-		// atomic_int_ops(DMPI_UNSIGNED_LONG_LONG_INT)
+		atomic_int_ops(DMPI_UNSIGNED_LONG)
+		atomic_int_ops(DMPI_UNSIGNED_LONG_LONG)
 
-		// atomic_real_float_ops(DMPI_FLOAT)
-		// atomic_real_float_ops(DMPI_DOUBLE)
-		// atomic_real_float_ops(DMPI_LONG_DOUBLE)
+		atomic_real_float_ops(DMPI_FLOAT)
+		atomic_real_float_ops(DMPI_DOUBLE)
+		atomic_real_float_ops(DMPI_LONG_DOUBLE)
 
-		// atomic_complex_float_ops(DMPI_C_FLOAT_COMPLEX, cabsf)
-		// atomic_complex_float_ops(DMPI_C_DOUBLE_COMPLEX, cabs)
-		// atomic_complex_float_ops(DMPI_C_LONG_DOUBLE_COMPLEX, cabsl)
+		atomic_complex_float_ops(DMPI_C_FLOAT_COMPLEX, cabsf)
+		atomic_complex_float_ops(DMPI_C_DOUBLE_COMPLEX, cabs)
+		atomic_complex_float_ops(DMPI_C_LONG_DOUBLE_COMPLEX, cabsl)
 
 		default:
 			return -1;
@@ -450,7 +451,7 @@ int perform_atomic_op(	MPI_Datatype dtype,
 static int validation_input_value(MPI_Datatype dtype, int jrank, void *val) {
 
 	if (dtype == MPI_DATATYPE_NULL) {}
-	else if (dtype == MPI_CHAR)
+	else if (dtype == MPI_SIGNED_CHAR)
 		*(char*)val = (1+jrank)*10;
 	else if (dtype == MPI_UNSIGNED_CHAR)
 		*(unsigned char*)val = (1+jrank)*10;
@@ -471,17 +472,18 @@ static int validation_input_value(MPI_Datatype dtype, int jrank, void *val) {
 	else if (dtype == MPI_UNSIGNED_LONG_LONG)
 		*(unsigned long long*)val = (1+jrank)*10;
 	else if (dtype == MPI_FLOAT)
-		*(float*)val = (1+jrank)*1.11;
+		*(float*)val = (1+jrank)*1.11f;
 	else if (dtype == MPI_DOUBLE)
 		*(double*)val = (1+jrank)*1.11;
 	else if (dtype == MPI_LONG_DOUBLE)
-		*(long double*)val = (1+jrank)*1.11;
+		*(long double*)val = (1+jrank)*1.11L;
 	else if (dtype == MPI_C_FLOAT_COMPLEX)
-		*(complex*)val = CMPLXF( (1+jrank)*1.11, (1+jrank*-0.5) );
-	else if (dtype == MPI_C_DOUBLE_COMPLEX)
-		*(float complex*)val = CMPLX( (1+jrank)*1.11, (1+jrank*-0.5) );
+		*(float complex*)val = CMPLXF( (1+jrank)*1.11f, (1+jrank*-0.5f) );
+	else if (dtype == MPI_C_DOUBLE_COMPLEX) {
+		*(double complex*)val = CMPLX( (1+jrank)*1.11, (1+jrank*-0.5) );
+	}
 	else if (dtype == MPI_C_LONG_DOUBLE_COMPLEX)
-		*(double complex*)val = CMPLXL( (1+jrank)*1.11, (1+jrank*-0.5) );
+		*(long double complex*)val = CMPLXL( (1+jrank)*1.11L, (1+jrank*-0.5L) );
 	else {
 		fprintf(stderr, "No initial value defined, cannot perform data validation "
 				"on atomic operations using %s\n",
@@ -495,8 +497,33 @@ static int validation_input_value(MPI_Datatype dtype, int jrank, void *val) {
 static int atom_binary_compare(MPI_Datatype dtype, void *a, void *b)
 {
 	int dtype_size = 0;
-	
-	MPI_Type_size(dtype, &dtype_size);
+	char *achar, *bchar;
+	int err;
+
+	// treat floating point types specially.  Avoid NaNs, since NaN != NaN.
+	if (dtype == MPI_C_LONG_DOUBLE_COMPLEX) {
+		return COMPARE_AS_TYPE(ATOM_CTYPE_FOR_DMPI_C_LONG_DOUBLE_COMPLEX, a, b);
+	}
+	if (dtype == MPI_C_DOUBLE_COMPLEX) {
+		return COMPARE_AS_TYPE(ATOM_CTYPE_FOR_DMPI_C_DOUBLE_COMPLEX, a, b);
+	}
+	if (dtype == MPI_C_FLOAT_COMPLEX) {
+		return COMPARE_AS_TYPE(ATOM_CTYPE_FOR_DMPI_C_FLOAT_COMPLEX, a, b);
+	}
+	if (dtype == MPI_LONG_DOUBLE) {
+		return COMPARE_AS_TYPE(ATOM_CTYPE_FOR_DMPI_LONG_DOUBLE, a, b);
+	}
+	if (dtype == MPI_DOUBLE) {
+		return COMPARE_AS_TYPE(ATOM_CTYPE_FOR_DMPI_DOUBLE, a, b);
+	}
+	if (dtype == MPI_FLOAT) {
+		return COMPARE_AS_TYPE(ATOM_CTYPE_FOR_DMPI_FLOAT, a, b);
+	}
+
+	// treat remaining integers based soley on their size	
+	err = MPI_Type_size(dtype, &dtype_size);
+	if (err) return 0;
+
 	switch (dtype_size)
 	{
 		case 1: return COMPARE_AS_TYPE(__int8_t, a, b);
@@ -504,14 +531,12 @@ static int atom_binary_compare(MPI_Datatype dtype, void *a, void *b)
 		case 4: return COMPARE_AS_TYPE(__int32_t, a, b);
 		case 8: return COMPARE_AS_TYPE(__int64_t, a, b);
 		case 16: return COMPARE_AS_TYPE(__int128_t, a, b);
-		default:
-			fprintf(stderr, "No implementation of COMPARE_AS_TYPE for %s\n", fi_tostr(&dtype, FI_TYPE_ATOMIC_TYPE) );
-		return 0;
 	}
+	return 0;
 }
 
 int atomic_data_validation_setup(MPI_Datatype datatype, int jrank, void *buf, size_t buf_size) {
-	char set_value[16]; // fits maximum atom size of 128 bits.
+	char set_value[64]; // fits maximum atom size of 256 bits.
 	char *set_buf;
 	int jatom;
 	int dtype_size;
@@ -522,8 +547,7 @@ int atomic_data_validation_setup(MPI_Datatype datatype, int jrank, void *buf, si
 	err = MPI_Type_size(datatype, &dtype_size);
 	if (err) goto exit_path;
 
-	natoms = (buf_size-dtype_size)/dtype_size + 1;
-	
+	natoms = buf_size/dtype_size;
 
 	// get the value we wish to set the memory to.
 	err = validation_input_value(datatype, jrank, set_value);
@@ -557,6 +581,17 @@ exit_path:
 		*(ATOM_CTYPE_FOR_##dtype*)(ci), \
 		*(ATOM_CTYPE_FOR_##dtype*)(ao), \
 		*(ATOM_CTYPE_FOR_##dtype*)(ae) );
+#define PRINT_ADR_COMPARISON_CPLX(fmtc,realfun,imagfun,ai,bi,ci,ao,ae) \
+	fprintf(stderr, \
+		"Initial Values: [local]addr=%"fmtc"%+"fmtc"i, [remote]buf=%"fmtc"%+"fmtc"i, [remote]compare=%"fmtc"%+"fmtc"i\n" \
+		"Observed Final Value: addr=%"fmtc"%+"fmtc"i\n" \
+		"Expected Final Value: addr=%"fmtc"%+"fmtc"i\n", \
+		realfun(ai), imagfun(ai), \
+		realfun(bi), imagfun(bi), \
+		realfun(ci), imagfun(ci), \
+		realfun(ao), imagfun(ao), \
+		realfun(ae), imagfun(ae) );
+
 #define PRINT_RES_COMPARISON(dtype,fmt,ai,bi,ci,ro,re) \
 	fprintf(stderr, \
 		"Initial Values: [remote]addr=" fmt ", [local]buf=" fmt ", [local]compare=" fmt "\n" \
@@ -567,14 +602,28 @@ exit_path:
 		*(ATOM_CTYPE_FOR_##dtype*)(ci), \
 		*(ATOM_CTYPE_FOR_##dtype*)(ro), \
 		*(ATOM_CTYPE_FOR_##dtype*)(re) )
+#define PRINT_RES_COMPARISON_CPLX(fmtc,realfun,imagfun,ai,bi,ci,ro,re) \
+	fprintf(stderr, \
+		"Initial Values: [remote]addr=%"fmtc"%+"fmtc"i, [local]buf=%"fmtc"%+"fmtc"i, [local]compare=%"fmtc"%+"fmtc"i\n" \
+		"Observed Final Value: addr=%"fmtc"%+"fmtc"i\n" \
+		"Expected Final Value: addr=%"fmtc"%+"fmtc"i\n", \
+		realfun(ai), imagfun(ai), \
+		realfun(bi), imagfun(bi), \
+		realfun(ci), imagfun(ci), \
+		realfun(ro), imagfun(ro), \
+		realfun(re), imagfun(re) );
+
+
 static void print_failure_message(MPI_Datatype datatype,
 	void *adr_in, void *buf_in, void *compare_in,
 	void *adr_obs, void *res_obs,
 	void *adr_expect, void *res_expect)
 {
-	if (datatype == MPI_CHAR) {
-		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_CHAR,"%d",adr_in,buf_in,compare_in,adr_obs,adr_expect);
-		if (res_obs) PRINT_RES_COMPARISON(DMPI_CHAR,"%d",adr_in,buf_in,compare_in,res_obs,res_expect);
+	double complex dc;
+
+	if (datatype == MPI_SIGNED_CHAR) {
+		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_SIGNED_CHAR,"%d",adr_in,buf_in,compare_in,adr_obs,adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON(DMPI_SIGNED_CHAR,"%d",adr_in,buf_in,compare_in,res_obs,res_expect);
 	}
 	if (datatype == MPI_UNSIGNED_CHAR) {
 		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_UNSIGNED_CHAR,"%u",adr_in,buf_in,compare_in,adr_obs,adr_expect);
@@ -604,6 +653,34 @@ static void print_failure_message(MPI_Datatype datatype,
 		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_UNSIGNED_LONG_LONG,"%lu",adr_in,buf_in,compare_in,adr_obs,adr_expect);
 		if (res_obs) PRINT_RES_COMPARISON(DMPI_UNSIGNED_LONG_LONG,"%lu",adr_in,buf_in,compare_in,res_obs,res_expect);
 	}
+	if (datatype == MPI_LONG_DOUBLE) {
+		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_LONG_DOUBLE,"%Lf",adr_in,buf_in,compare_in,adr_obs,adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON(DMPI_LONG_DOUBLE,"%Lf",adr_in,buf_in,compare_in,res_obs,res_expect);
+	}
+	if (datatype == MPI_DOUBLE) {
+		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_DOUBLE,"%f",adr_in,buf_in,compare_in,adr_obs,adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON(DMPI_DOUBLE,"%f",adr_in,buf_in,compare_in,res_obs,res_expect);
+	}
+	if (datatype == MPI_LONG_DOUBLE) {
+		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_LONG_DOUBLE,"%Lf",adr_in,buf_in,compare_in,adr_obs,adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON(DMPI_LONG_DOUBLE,"%Lf",adr_in,buf_in,compare_in,res_obs,res_expect);
+	}
+	if (datatype == MPI_FLOAT) {
+		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_FLOAT,"%f",adr_in,buf_in,compare_in,adr_obs,adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON(DMPI_FLOAT,"%f",adr_in,buf_in,compare_in,res_obs,res_expect);
+	}
+	if (datatype == MPI_C_FLOAT_COMPLEX) {
+		if (adr_obs) PRINT_ADR_COMPARISON_CPLX("f",crealf,cimagf,*(float complex*)adr_in,*(float complex*)buf_in,*(float complex*)compare_in,*(float complex*)adr_obs,*(float complex*)adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON_CPLX("f",crealf,cimagf,*(float complex*)adr_in,*(float complex*)buf_in,*(float complex*)compare_in,*(float complex*)adr_obs,*(float complex*)adr_expect);
+	}
+	if (datatype == MPI_C_DOUBLE_COMPLEX) {
+		if (adr_obs) PRINT_ADR_COMPARISON_CPLX("f",creal,cimag,*(double complex*)adr_in,*(double complex*)buf_in,*(double complex*)compare_in,*(double complex*)adr_obs,*(double complex*)adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON_CPLX("f",creal,cimag,*(double complex*)adr_in,*(double complex*)buf_in,*(double complex*)compare_in,*(double complex*)res_obs,*(double complex*)res_expect);
+	}
+	if (datatype == MPI_C_LONG_DOUBLE_COMPLEX) {
+		if (adr_obs) PRINT_ADR_COMPARISON_CPLX("Lf",creall,cimagl,*(long double complex*)adr_in,*(long double complex*)buf_in,*(long double complex*)compare_in,*(long double complex*)adr_obs,*(long double complex*)adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON_CPLX("Lf",creall,cimagl,*(long double complex*)adr_in,*(long double complex*)buf_in,*(long double complex*)compare_in,*(long double complex*)res_obs,*(long double complex*)res_expect);
+	}
 			// case FI_FLOAT:
 			// 	if (adr_obs) PRINT_ADR_COMPARISON(FI_FLOAT,"%f",adr_in,buf_in,compare_in,adr_obs,adr_expect);
 			// 	if (res_obs) PRINT_RES_COMPARISON(FI_FLOAT,"%f",adr_in,buf_in,compare_in,res_obs,res_expect);
@@ -617,8 +694,8 @@ static void print_failure_message(MPI_Datatype datatype,
 }
 
 int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, void *addr, void *res, size_t buf_size, bool check_addr, bool check_result) {
-	// these all fit the maximum atom size of 128 bits.
-	const int MAX_ATOM_BYTES=16;
+	// these all fit the maximum atom size of 256 bits.
+	const int MAX_ATOM_BYTES=64;
 	char local_addr[MAX_ATOM_BYTES],            remote_addr[MAX_ATOM_BYTES];
 	char local_buf[MAX_ATOM_BYTES],             remote_buf[MAX_ATOM_BYTES];
 	char local_compare[MAX_ATOM_BYTES],         remote_compare[MAX_ATOM_BYTES];
@@ -636,7 +713,7 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
  	err = MPI_Type_size(datatype, &dtype_size);
 	if (err) return err;
 
-	natoms = (buf_size-dtype_size)/dtype_size + 1;
+	natoms = buf_size/dtype_size;
 
 	// setup initial conditions so we can mock the test
 	err  = validation_input_value(datatype, jrank, local_addr);
@@ -656,10 +733,16 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
 	if (err == -ENODATA) goto nocheck;
 	if (err) goto error;
 
+	// if (datatype == MPI_C_LONG_DOUBLE_COMPLEX) {
+	// 	printf("Checking: %Lf%+Lfi\t%Lf%+Lfi\t%Lf%+Lfi",
+	// 		creall(local_addr),remote_addr, expected_local_addr);
+	// }
+
+
 	err  = get_hmem_buffer(local_addr_in_sysmem, addr, buf_size );
 	err |= get_hmem_buffer(local_result_in_sysmem, res, buf_size );
 	if (err) goto error;
-
+	natoms = 1;
 	for (jatom=0; jatom < natoms; jatom++) {
 		addr_eq = 1;
 		res_eq = 1;
@@ -707,4 +790,42 @@ error:
 	return err;
 
 
+}
+
+
+int is_mpi_op_allowed(MPI_Datatype dtype, MPI_Op op) {
+	// see MPI standard v4.0 June 2021:  Sec 6.9.2, page 226
+	// this function is not comprehensive, but it covers
+	// most of the operations on C types that we intend to test.
+
+	enum data_class { integer, floating_point, floating_complex};
+	enum data_class dclass;
+
+	if (dtype == MPI_DATATYPE_NULL)       return 0;
+	if (dtype == MPI_SIGNED_CHAR)         dclass = integer;
+	if (dtype == MPI_UNSIGNED_CHAR)       dclass = integer;
+	if (dtype == MPI_SHORT)               dclass = integer;
+	if (dtype == MPI_UNSIGNED_SHORT)      dclass = integer;
+	if (dtype == MPI_INT)                 dclass = integer;
+	if (dtype == MPI_UNSIGNED)            dclass = integer;
+	if (dtype == MPI_LONG)                dclass = integer;
+	if (dtype == MPI_UNSIGNED_LONG)       dclass = integer;
+	if (dtype == MPI_LONG_LONG)           dclass = integer;
+	if (dtype == MPI_UNSIGNED_LONG_LONG)  dclass = integer;
+	if (dtype == MPI_FLOAT)               dclass = floating_point;
+	if (dtype == MPI_DOUBLE)              dclass = floating_point;
+	if (dtype == MPI_LONG_DOUBLE)         dclass = floating_point;
+	if (dtype == MPI_C_FLOAT_COMPLEX)     dclass = floating_complex;
+	if (dtype == MPI_C_DOUBLE_COMPLEX)    dclass = floating_complex;
+	if (dtype == MPI_C_LONG_DOUBLE_COMPLEX) dclass = floating_complex;
+
+	if (op == MPI_MAX || op == MPI_MIN)
+		return dclass == integer || dclass == floating_point;
+	if (op == MPI_SUM || op == MPI_PROD)
+		return dclass == integer || dclass == floating_point || dclass == floating_complex;
+	if (op == MPI_LAND || op == MPI_LOR || op == MPI_LXOR)
+		return dclass == integer;
+	if (op == MPI_BAND || op == MPI_BOR || op == MPI_BXOR)
+		return dclass == integer;
+	return 0;
 }
