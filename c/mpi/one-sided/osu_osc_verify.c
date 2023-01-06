@@ -12,6 +12,7 @@
 
 static int set_hmem_buffer (void *dst, void *src, size_t size)
 {
+	// return;
     switch (options.accel) {
 	case NONE:
 		memcpy(dst, src, size);
@@ -31,6 +32,7 @@ static int set_hmem_buffer (void *dst, void *src, size_t size)
 
 static int get_hmem_buffer (void *dst, void *src, size_t size)
 {
+	// return;
     switch (options.accel) {
 	case NONE:
 		memcpy(dst, src, size);
@@ -192,16 +194,22 @@ int atomic_data_validation_print_summary() {
 	char type_str[32] = {0};
 	char op_str[32] = {0};
 	char test_name[64] = {};
+	int validation_combos = 0;
 
 	struct atomic_dv_summary *node = dv_summary_root;
 	struct atomic_dv_summary *next = NULL;
 
-	if (!node) return 0;
+	if (!node) {
+		printf("SKIPPED: No validations were performed!\n");
+		return 0;
+	}
 
 	while(node) {
 		snprintf(type_str, sizeof(type_str)-1, "%s", fi_tostr(&node->datatype, FI_TYPE_ATOMIC_TYPE));
 		snprintf(op_str, sizeof(op_str)-1, "%s", fi_tostr(&node->op, FI_TYPE_ATOMIC_OP));
 		snprintf(test_name, sizeof(test_name), "%s on %s", op_str, type_str);
+		validation_combos += 1;
+
 		if (node->validation_failures==0 && node->validations_performed==node->trials) {
 			// all these tests passed
 			//printf("PASSED: %s passed %zu trials.\n",test_name, node->trials);
@@ -222,6 +230,12 @@ int atomic_data_validation_print_summary() {
 		next = node->next;
 		free(node);
 		node = next;
+	}
+
+	if (retval == 0) {
+		printf("PASSED: All %d combinations of ops and datatypes tested passed.\n",validation_combos);
+	} else {
+		printf("FAILED: Some of the %d combinations of ops and datatypes tested failed.\n",validation_combos);
 	}
 
 	return retval;
@@ -498,16 +512,18 @@ static int atom_binary_compare(MPI_Datatype dtype, void *a, void *b)
 
 int atomic_data_validation_setup(MPI_Datatype datatype, int jrank, void *buf, size_t buf_size) {
 	char set_value[16]; // fits maximum atom size of 128 bits.
-	char *set_buf = NULL;
+	char *set_buf;
 	int jatom;
 	int dtype_size;
-	size_t natoms = (buf_size-dtype_size)/dtype_size + 1;
+	size_t natoms;
 	int err;
-
+	
 	set_buf = calloc(buf_size, 1);
-
 	err = MPI_Type_size(datatype, &dtype_size);
 	if (err) goto exit_path;
+
+	natoms = (buf_size-dtype_size)/dtype_size + 1;
+	
 
 	// get the value we wish to set the memory to.
 	err = validation_input_value(datatype, jrank, set_value);
@@ -525,7 +541,7 @@ int atomic_data_validation_setup(MPI_Datatype datatype, int jrank, void *buf, si
 	}
 
 	// copy system buffer to hmem.
-	//err = set_hmem_buffer(buf, set_buf, buf_size );
+	err = set_hmem_buffer(buf, set_buf, buf_size );
 exit_path:
 	free(set_buf);
 	return err;
@@ -612,13 +628,15 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
 	char local_addr_in_sysmem[buf_size];
 	char local_result_in_sysmem[buf_size];
 	int dtype_size;
-	size_t natoms = (buf_size-dtype_size)/dtype_size + 1;
+	size_t natoms;
 	int jatom;
 	int err, addr_eq, res_eq, any_errors=0;
 	int jrank_remote = (jrank+1)%2;
 
  	err = MPI_Type_size(datatype, &dtype_size);
 	if (err) return err;
+
+	natoms = (buf_size-dtype_size)/dtype_size + 1;
 
 	// setup initial conditions so we can mock the test
 	err  = validation_input_value(datatype, jrank, local_addr);
