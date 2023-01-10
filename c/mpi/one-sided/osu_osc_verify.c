@@ -237,7 +237,7 @@ int atomic_data_validation_print_summary() {
 	} else {
 		printf("FAILED: Some of the %d combinations of ops and datatypes tested failed.\n",validation_combos);
 	}
-
+	dv_summary_root = NULL;
 	return retval;
 }
 
@@ -671,7 +671,7 @@ static void print_failure_message(MPI_Datatype datatype,
 	}
 	if (datatype == MPI_C_FLOAT_COMPLEX) {
 		if (adr_obs) PRINT_ADR_COMPARISON_CPLX("f",crealf,cimagf,*(float complex*)adr_in,*(float complex*)buf_in,*(float complex*)compare_in,*(float complex*)adr_obs,*(float complex*)adr_expect);
-		if (res_obs) PRINT_RES_COMPARISON_CPLX("f",crealf,cimagf,*(float complex*)adr_in,*(float complex*)buf_in,*(float complex*)compare_in,*(float complex*)adr_obs,*(float complex*)adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON_CPLX("f",crealf,cimagf,*(float complex*)adr_in,*(float complex*)buf_in,*(float complex*)compare_in,*(float complex*)res_obs,*(float complex*)res_expect);
 	}
 	if (datatype == MPI_C_DOUBLE_COMPLEX) {
 		if (adr_obs) PRINT_ADR_COMPARISON_CPLX("f",creal,cimag,*(double complex*)adr_in,*(double complex*)buf_in,*(double complex*)compare_in,*(double complex*)adr_obs,*(double complex*)adr_expect);
