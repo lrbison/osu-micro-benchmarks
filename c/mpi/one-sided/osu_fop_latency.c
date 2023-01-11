@@ -252,9 +252,9 @@ void run_fop_with_flush_local(int rank, enum WINDOW win_type, MPI_Datatype data_
     allocate_atomic_memory(rank, (char **)&sbuf,
             (char **)&tbuf, NULL, (char **)&win_base, options.max_message_size, win_type, &win);
 
-    atomic_data_validation_setup(MPI_LONG_LONG, rank, win_base, options.max_message_size);
-    atomic_data_validation_setup(MPI_LONG_LONG, rank, sbuf, options.max_message_size);
-    atomic_data_validation_setup(MPI_LONG_LONG, rank, tbuf, options.max_message_size);
+    atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+    atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+    atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
     if (rank == 0) {
@@ -325,9 +325,9 @@ void run_fop_with_flush(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
     allocate_atomic_memory(rank, (char **)&sbuf,
             (char **)&tbuf, NULL, (char **)&win_base, options.max_message_size, win_type, &win);
 
-    atomic_data_validation_setup(MPI_LONG_LONG, rank, win_base, options.max_message_size);
-    atomic_data_validation_setup(MPI_LONG_LONG, rank, sbuf, options.max_message_size);
-    atomic_data_validation_setup(MPI_LONG_LONG, rank, tbuf, options.max_message_size);
+    atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+    atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+    atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
     if (rank == 0) {
