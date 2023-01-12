@@ -75,6 +75,7 @@ char* fi_tostr(void *val, type_of_enum type_type) {
 	memset(fi_str_output, 0, sizeof(fi_str_output));
 	if (type_type == FI_TYPE_ATOMIC_OP) {
 		MPI_Op op = *(MPI_Op*)val;
+		if (-1 == *(int*)val)	sprintf(fi_str_output,"%s", "Compare-And-Swap");
 		if (op == MPI_OP_NULL)  sprintf(fi_str_output,"%s", "MPI_OP_NULL");
 		if (op == MPI_MAX)      sprintf(fi_str_output,"%s", "MPI_MAX");
 		if (op == MPI_MIN)      sprintf(fi_str_output,"%s", "MPI_MIN");
@@ -195,6 +196,7 @@ int atomic_data_validation_print_summary() {
 	char op_str[32] = {0};
 	char test_name[64] = {};
 	int validation_combos = 0;
+	int failure_count = 0;
 
 	struct atomic_dv_summary *node = dv_summary_root;
 	struct atomic_dv_summary *next = NULL;
@@ -220,10 +222,12 @@ int atomic_data_validation_print_summary() {
 			printf("\t\tFirst failure at trial %zu, last failure at trial %zu.\n",
 				node->first_failure, node->last_failure);
 			retval = -1;
+			failure_count++;
 		}
 		else if (node->validations_performed < node->trials) {
 			printf("SKIPPED: Data validation not available for %s\n", test_name);
 			retval = -1;
+			failure_count++;
 		}
 
 		// clean up as we go
@@ -235,7 +239,7 @@ int atomic_data_validation_print_summary() {
 	if (retval == 0) {
 		printf("PASSED: All %d combinations of ops and datatypes tested passed.\n",validation_combos);
 	} else {
-		printf("FAILED: Some of the %d combinations of ops and datatypes tested failed.\n",validation_combos);
+		printf("FAILED: %d of the %d combinations of ops and datatypes tested failed.\n",failure_count,validation_combos);
 	}
 	dv_summary_root = NULL;
 	return retval;
@@ -277,7 +281,7 @@ static void atomic_dv_record(MPI_Datatype dtype, MPI_Op op, bool failed, bool ch
 #define ATOM_FOR_DMPI_BAND(a,ao,b) (ao) = ((a) & (b))
 #define ATOM_FOR_DMPI_LXOR(a,ao,b) (ao) = (((a) && !(b)) || (!(a) && (b)))
 #define ATOM_FOR_DMPI_BXOR(a,ao,b) (ao) = ((a) ^ (b))
-#define ATOM_FOR_DMPI_ATOMIC_READ(a,ao,b) {}
+#define ATOM_FOR_DMPI_ATOMIC_READ(a,ao,b)  (ao) = (a)
 #define ATOM_FOR_DMPI_ATOMIC_WRITE(a,ao,b) (ao) = (b)
 
 #define ATOM_FOR_DMPI_CSWAP(a,ao,b,c)    if ((c) == (a)) {(ao) = (b);}
@@ -317,46 +321,38 @@ static void atomic_dv_record(MPI_Datatype dtype, MPI_Op op, bool failed, bool ch
 // this macro is for expansion inside the perform_atomic_op function
 // and uses variables local to that function.
 #define atomic_case_cplx(ftype, fop, absfun)					\
-case ftype*MPI_OP_COUNT + fop:				                \
+case ftype*MPI_OP_COUNT + fop:				                	\
 	{   if(result) *(ATOM_CTYPE_FOR_##ftype*)result = *(ATOM_CTYPE_FOR_##ftype*)addr_in;	\
-		ATOM_FOR_CPLX_##fop( *(ATOM_CTYPE_FOR_##ftype*)addr_in,		\
-						 *(ATOM_CTYPE_FOR_##ftype*)addr_out,	\
-						 *(ATOM_CTYPE_FOR_##ftype*)buf,	\
-						 absfun );			\
+		ATOM_FOR_CPLX_##fop( 	*(ATOM_CTYPE_FOR_##ftype*)addr_in,	\
+					*(ATOM_CTYPE_FOR_##ftype*)addr_out,	\
+					*(ATOM_CTYPE_FOR_##ftype*)buf,		\
+					absfun );				\
 		break;								\
 	}
+
 #define atomic_case(ftype, fop)							\
-case ENUM_OF_##ftype*MPI_OP_COUNT + ENUM_OF_##fop:						\
+case ENUM_OF_##ftype*MPI_OP_COUNT + ENUM_OF_##fop:				\
 	{   if(result) *(ATOM_CTYPE_FOR_##ftype*)result = *(ATOM_CTYPE_FOR_##ftype*)addr_in;	\
-		ATOM_FOR_##fop(  *(ATOM_CTYPE_FOR_##ftype*)addr_in,		\
-						 *(ATOM_CTYPE_FOR_##ftype*)addr_out,	\
-						 *(ATOM_CTYPE_FOR_##ftype*)buf );	\
+		ATOM_FOR_##fop(	*(ATOM_CTYPE_FOR_##ftype*)addr_in,		\
+				*(ATOM_CTYPE_FOR_##ftype*)addr_out,		\
+				*(ATOM_CTYPE_FOR_##ftype*)buf );		\
 		break;								\
 	}
 
-// this macro is for expansion inside the perform_atomic_op function
+
+// this macro is for expansion inside the perform_atomic_cas function
 // and uses variables local to that function.
-#define atomic_case_compare(ftype, fop)						\
-case ftype*MPI_OP_COUNT + fop:						\
+#define atomic_case_cas(ftype)							\
+case ENUM_OF_##ftype:									\
 	{   if(result) {*(ATOM_CTYPE_FOR_##ftype*)result = *(ATOM_CTYPE_FOR_##ftype*)addr_in; }	\
-		ATOM_FOR_##fop(  *(ATOM_CTYPE_FOR_##ftype*)addr_in,		\
-						 *(ATOM_CTYPE_FOR_##ftype*)addr_out,	\
-						 *(ATOM_CTYPE_FOR_##ftype*)buf,	\
-						 *(ATOM_CTYPE_FOR_##ftype*)compare );	\
-		break;								\
-	}
-#define atomic_case_compare_cplx(ftype, fop, absfun)				\
-case ftype*MPI_OP_COUNT + fop:						\
-	{   if(result) {*(ATOM_CTYPE_FOR_##ftype*)result = *(ATOM_CTYPE_FOR_##ftype*)addr_in; }	\
-		ATOM_FOR_CPLX_##fop(  *(ATOM_CTYPE_FOR_##ftype*)addr_in,	\
-						 *(ATOM_CTYPE_FOR_##ftype*)addr_out,	\
-						 *(ATOM_CTYPE_FOR_##ftype*)buf,	\
-						 *(ATOM_CTYPE_FOR_##ftype*)compare,	\
-						 absfun );			\
+		ATOM_FOR_DMPI_CSWAP(	*(ATOM_CTYPE_FOR_##ftype*)addr_in,	\
+					*(ATOM_CTYPE_FOR_##ftype*)addr_out,	\
+					*(ATOM_CTYPE_FOR_##ftype*)buf,		\
+					*(ATOM_CTYPE_FOR_##ftype*)compare );	\
 		break;								\
 	}
 
-#define atomic_int_ops(dtype) 			\
+#define atomic_int_ops(dtype)				\
 	atomic_case(dtype, DMPI_MIN)			\
 	atomic_case(dtype, DMPI_MAX)			\
 	atomic_case(dtype, DMPI_SUM)			\
@@ -406,10 +402,6 @@ case ftype*MPI_OP_COUNT + fop:						\
 	// atomic_case(dtype, FI_ATOMIC_WRITE)			\
 	// atomic_case_compare(dtype, FI_CSWAP)			\
 	// atomic_case_compare(dtype, FI_CSWAP_NE)			\
-	// atomic_case_compare_cplx(dtype, FI_CSWAP_LE, absfun)	\
-	// atomic_case_compare_cplx(dtype, FI_CSWAP_LT, absfun)	\
-	// atomic_case_compare_cplx(dtype, FI_CSWAP_GE, absfun)	\
-	// atomic_case_compare_cplx(dtype, FI_CSWAP_GT, absfun)
 
 
 int perform_atomic_op(	MPI_Datatype dtype,
@@ -440,6 +432,35 @@ int perform_atomic_op(	MPI_Datatype dtype,
 		atomic_complex_float_ops(DMPI_C_FLOAT_COMPLEX, cabsf)
 		atomic_complex_float_ops(DMPI_C_DOUBLE_COMPLEX, cabs)
 		atomic_complex_float_ops(DMPI_C_LONG_DOUBLE_COMPLEX, cabsl)
+
+		default:
+			return -1;
+
+	}
+	return 0;
+}
+
+int perform_atomic_cas(	MPI_Datatype dtype,
+			void *addr_in,
+			void *buf,
+			void *addr_out,
+			void *compare,
+			void *result)
+{
+    	int dtype_enumeration = mpi_dtype_enumerate(dtype);
+	switch(dtype_enumeration) {
+		atomic_case_cas(DMPI_SIGNED_CHAR)
+		atomic_case_cas(DMPI_UNSIGNED_CHAR)
+		atomic_case_cas(DMPI_SHORT)
+		atomic_case_cas(DMPI_UNSIGNED_SHORT)
+		atomic_case_cas(DMPI_INT)
+		atomic_case_cas(DMPI_UNSIGNED)
+		atomic_case_cas(DMPI_LONG_LONG)
+		atomic_case_cas(DMPI_UNSIGNED_LONG)
+		atomic_case_cas(DMPI_UNSIGNED_LONG_LONG)
+		atomic_case_cas(DMPI_FLOAT)
+		atomic_case_cas(DMPI_DOUBLE)
+		atomic_case_cas(DMPI_LONG_DOUBLE)
 
 		default:
 			return -1;
@@ -726,10 +747,18 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
 	if (err == -ENODATA) goto nocheck;
 	if (err) goto error;
 
-	// mock the remote side performing operations on our local addr
-	err  = perform_atomic_op(datatype, op, local_addr, remote_buf, expected_local_addr, remote_compare, NULL);
-	// mock the local side performing operations on remote addr
-	err |= perform_atomic_op(datatype, op, remote_addr, local_buf, dummy_remote_addr, local_compare, expected_local_result);
+	if ((long long)op == -1) {
+		// mock the remote side performing CAS on our local addr
+		err  = perform_atomic_cas(datatype, local_addr, remote_buf, expected_local_addr, remote_compare, NULL);
+		// mock the local side performing CAS on remote addr
+		err |= perform_atomic_cas(datatype, remote_addr, local_buf, dummy_remote_addr, local_compare, expected_local_result);
+	}
+	else {
+		// mock the remote side performing operations on our local addr
+		err  = perform_atomic_op(datatype, op, local_addr, remote_buf, expected_local_addr, remote_compare, NULL);
+		// mock the local side performing operations on remote addr
+		err |= perform_atomic_op(datatype, op, remote_addr, local_buf, dummy_remote_addr, local_compare, expected_local_result);
+	}
 	if (err == -ENODATA) goto nocheck;
 	if (err) goto error;
 
@@ -792,6 +821,12 @@ error:
 
 }
 
+int is_mpi_cas_allowed(MPI_Datatype dtype) {
+	if (dtype == MPI_C_FLOAT_COMPLEX)	return 0;
+	if (dtype == MPI_C_DOUBLE_COMPLEX)	return 0;
+	if (dtype == MPI_C_LONG_DOUBLE_COMPLEX)	return 0;
+	return 1;
+}
 
 int is_mpi_op_allowed(MPI_Datatype dtype, MPI_Op op) {
 	// see MPI standard v4.0 June 2021:  Sec 6.9.2, page 226

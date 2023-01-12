@@ -55,10 +55,6 @@ int main (int argc, char *argv[])
         MPI_SIGNED_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,
         MPI_INT, MPI_UNSIGNED, MPI_LONG_LONG, MPI_UNSIGNED_LONG_LONG,
         MPI_FLOAT, MPI_DOUBLE, MPI_LONG_DOUBLE,
-        MPI_C_FLOAT_COMPLEX, MPI_C_DOUBLE_COMPLEX, MPI_C_LONG_DOUBLE_COMPLEX,
-        // // testing:
-        // MPI_C_FLOAT_COMPLEX,
-        // MPI_INT,
         };
     const int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
     int type_name_size = 0;
@@ -137,7 +133,6 @@ int main (int argc, char *argv[])
         char dtype_name_str[128];
         MPI_CHECK(MPI_Type_get_name(dtype_list[jtype_test], dtype_name_str, &type_name_size));
 
-
         print_header_one_sided(rank, options.win, options.sync);
         printf("Test MPI_Datatype: %s\n", dtype_name_str);
 
@@ -161,6 +156,16 @@ int main (int argc, char *argv[])
                 run_cas_with_flush(rank, options.win, dtype_list[jtype_test]);
                 break;
         }
+    }
+
+    for (int jrank_print=0; jrank_print<2; jrank_print++) {
+        if (jrank_print == rank) {
+            printf("-------------------------------------------\n");
+            printf("Atomic Data Validation results for Rank=%d:\n",rank);
+            atomic_data_validation_print_summary();
+            printf("-------------------------------------------\n");
+        }
+        MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
     }
 
     MPI_CHECK(MPI_Finalize());
@@ -529,6 +534,10 @@ void run_cas_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type)
         MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
         for (i = 0; i < options.skip + options.iterations; i++) {
+            atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+            atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+            atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+
             MPI_CHECK(MPI_Win_start (group, 0, win));
 
             if (i == options.skip) {
@@ -549,6 +558,8 @@ void run_cas_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type)
                     omb_graph_data->data[i - options.skip] = (t_graph_end -
                             t_graph_start) * 1.0e6 / 2.0;
                 }
+                //atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 0, 1);
+
             }
         }
 
@@ -561,6 +572,11 @@ void run_cas_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type)
         MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
         for (i = 0; i < options.skip + options.iterations; i++) {
+            atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+            atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+            atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+
+
             if (i == options.skip) {
                 omb_papi_start(&papi_eventset);
             }
@@ -569,6 +585,8 @@ void run_cas_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type)
             MPI_CHECK(MPI_Win_start(group, 0, win));
             MPI_CHECK(MPI_Compare_and_swap(sbuf, cbuf, tbuf, data_type, 0, disp, win));
             MPI_CHECK(MPI_Win_complete(win));
+
+            atomic_data_validation_check(data_type, (MPI_Op)-1, rank, win_base, tbuf, options.max_message_size, 0, 1);
         }
     }
 
