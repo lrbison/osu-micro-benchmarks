@@ -20,7 +20,7 @@
 char const * benchmark_header = NULL;
 char const * benchmark_name = NULL;
 int accel_enabled = 0;
-struct options_t options;
+struct options_t options = {0};
 
 struct bad_usage_t bad_usage;
 
@@ -412,6 +412,7 @@ int process_options (int argc, char *argv[])
     extern int optind, optopt;
 
     char const * optstring = NULL;
+    char optstring_buf[80];
     int c, ret = PO_OKAY;
 
     int option_index = 0;
@@ -536,13 +537,29 @@ int process_options (int argc, char *argv[])
             }
         }
     } else if (options.bench == ONE_SIDED) {
+        int jchar = 0;
+
+        jchar = sprintf(&optstring_buf[jchar], "%s","+:w:s:hvm:x:i:G:");
         if(options.subtype == BW) {
-            optstring = (accel_enabled) ? "+:w:s:hvm:d:x:i:W:G:" :
-                "+:w:s:hvm:x:i:W:G:P:";
-        } else {
-            optstring = (accel_enabled) ? "+:w:s:hvm:d:x:i:G:" :
-                "+:w:s:hvm:x:i:G:P:";
+            jchar += sprintf(&optstring_buf[jchar], "%s","W:");
         }
+        if (accel_enabled) {
+            jchar += sprintf(&optstring_buf[jchar], "%s","d:");
+        } else {
+            jchar += sprintf(&optstring_buf[jchar], "%s","P:");
+        }
+        if (options.show_validation) {
+            jchar += sprintf(&optstring_buf[jchar], "%s","c");
+        }
+        optstring = optstring_buf;
+
+//        if(options.subtype == BW) {
+//            optstring = (accel_enabled) ? "+:w:s:hvm:d:x:i:W:G:" :
+//                "+:w:s:hvm:x:i:W:G:P:";
+//        } else {
+//            optstring = (accel_enabled) ? "+:w:s:hvm:d:x:i:G:" :
+//                "+:w:s:hvm:x:i:G:P:";
+//        }
     } else if (options.bench == MBW_MR) {
         optstring = (accel_enabled) ? "p:W:R:x:i:m:d:Vhvb:cu:G:D:" :
             "p:W:R:x:i:m:Vhvb:cu:G:D:P:";

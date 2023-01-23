@@ -313,6 +313,7 @@ struct options_t {
     enum target_type target;
     int show_size;
     int show_full;
+    int show_validation;
     size_t min_message_size;
     size_t max_message_size;
     size_t iterations;

@@ -161,6 +161,12 @@ size_t omb_ddt_get_size(size_t size);
 void omb_ddt_append_stats(size_t omb_ddt_transmit_size);
 
 int atomic_data_validation_setup(MPI_Datatype datatype, int jrank, void *buf, size_t buf_size);
-int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, void *addr, void *res, size_t buf_size, _Bool check_addr, _Bool check_result);
+int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, void *addr, void *res, size_t buf_size, _Bool check_addr, _Bool check_result, int *validation_error_flag);
 int atomic_data_validation_print_summary();
 int is_mpi_op_allowed(MPI_Datatype dtype, MPI_Op op);
+typedef enum type_of_enum {
+    OSC_TYPE_ATOMIC_TYPE,
+    OSC_TYPE_ATOMIC_OP
+} type_of_enum;
+char* osc_tostr(void *, type_of_enum);
+

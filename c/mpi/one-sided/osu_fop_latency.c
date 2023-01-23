@@ -15,44 +15,15 @@
 double  t_start = 0.0, t_end = 0.0;
 uint64_t *sbuf=NULL, *tbuf=NULL, *win_base = NULL;
 omb_graph_options_t omb_graph_op;
+int validation_error_flag = 0;
 
-void gdb_attach(const char* env_variable) {
-    char hostname[256];
-    char *val = getenv(env_variable);
-    if (!val || val[0] != 'y') return;
-
-    size_t attach_pid = getpid();
-    gethostname(hostname, sizeof(hostname));
-    // if (fork() == 0) {
-    //     char pid_str[12];
-    //     sprintf(pid_str, "%d",attach_pid);
-    //     printf("on %s I will launch gdbserver and attach to %s\n", hostname, pid_str);
-    //     int prob = execlp("/usr/bin/gdbserver","/usr/bin/gdbserver","dummy:2345","--attach",pid_str);
-    //     printf("Problem was %d, errno=%d\n",prob,errno);
-    //     perror(NULL);
-    // }
-    // else {
-        volatile int i = 0;
-        printf("PID %d on %s ready for attach\n", getpid(), hostname);
-        fflush(stdout);
-        while (0 == i)
-            sleep(5); // gdb: set var i = 7
-    // }
-}
-
-void print_latency (int, int);
+void print_latency (int, int, float);
 void run_fop_with_lock(int rank, enum WINDOW win_type, MPI_Datatype data_type, MPI_Op op);
 void run_fop_with_fence (int rank, enum WINDOW win_type, MPI_Datatype data_type, MPI_Op op);
 void run_fop_with_lock_all(int rank, enum WINDOW win_type, MPI_Datatype data_type, MPI_Op op);
 void run_fop_with_flush(int rank, enum WINDOW win_type, MPI_Datatype data_type, MPI_Op op);
 void run_fop_with_flush_local(int rank, enum WINDOW win_type, MPI_Datatype data_type, MPI_Op op);
 void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, MPI_Op op);
-
-typedef enum type_of_enum {
-    FI_TYPE_ATOMIC_TYPE,
-    FI_TYPE_ATOMIC_OP
-} type_of_enum;
-char* fi_tostr(void *val, type_of_enum type_type);
 
 int main (int argc, char *argv[])
 {
@@ -65,6 +36,8 @@ int main (int argc, char *argv[])
     options.bench = ONE_SIDED;
     options.subtype = LAT;
     options.synctype = ALL_SYNC;
+    options.show_validation = 1;
+
 
     char op_name[32] = {'\0'};
     char type_name[32] = {'\0'};
@@ -74,9 +47,6 @@ int main (int argc, char *argv[])
         MPI_INT, MPI_UNSIGNED, MPI_LONG_LONG, MPI_UNSIGNED_LONG_LONG,
         MPI_FLOAT, MPI_DOUBLE, MPI_LONG_DOUBLE,
         MPI_C_FLOAT_COMPLEX, MPI_C_DOUBLE_COMPLEX, MPI_C_LONG_DOUBLE_COMPLEX,
-        // // testing:
-        // MPI_C_FLOAT_COMPLEX,
-        // MPI_INT,
         };
     MPI_Op op_list[] = {
         MPI_MAX, MPI_MIN,
@@ -84,7 +54,6 @@ int main (int argc, char *argv[])
         MPI_LAND, MPI_BAND,
         MPI_LOR, MPI_BOR,
         MPI_LXOR, MPI_BXOR,
-        MPI_PROD,
     };
     const int nops = sizeof(op_list)/sizeof(op_list[0]);
     const int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
@@ -106,10 +75,6 @@ int main (int argc, char *argv[])
     MPI_CHECK(MPI_Init(&argc, &argv));
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &nprocs));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
-
-    gdb_attach("DEBUG");
-
-    MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
     if (0 == rank) {
         switch (po_ret) {
@@ -164,15 +129,13 @@ int main (int argc, char *argv[])
     for (int jdata_type = 0; jdata_type < ntypes; jdata_type++) {
     for (int jop = 0; jop < nops; jop++) {
 
-    // if (op_list[jop] != MPI_SUM) continue;
-    //if (dtype_list[jdata_type] != MPI_C_FLOAT_COMPLEX) continue;
     MPI_Type_get_name(dtype_list[jdata_type], type_name, &type_name_size);
 
     if ( !is_mpi_op_allowed(dtype_list[jdata_type], op_list[jop]) ) {
-        printf("Skipping: OP %s on Datatype %s is not allowed\n", fi_tostr(&op_list[jop], FI_TYPE_ATOMIC_OP),type_name);
+        printf("Skipping: OP %s on Datatype %s is not allowed\n", osc_tostr(&op_list[jop], OSC_TYPE_ATOMIC_OP),type_name);
         continue;
     }
-    printf("Starting OP %s on Datatype %s.\n", fi_tostr(&op_list[jop], FI_TYPE_ATOMIC_OP),type_name);
+    printf("# Operation: %s, Datatype: %s.\n", osc_tostr(&op_list[jop], OSC_TYPE_ATOMIC_OP),type_name);
 
 
     print_header_one_sided(rank, options.win, options.sync);
@@ -200,14 +163,16 @@ int main (int argc, char *argv[])
 
     }}
 
-    for (int jrank_print=0; jrank_print<2; jrank_print++) {
-        if (jrank_print == rank) {
-            printf("-------------------------------------------\n");
-            printf("Atomic Data Validation results for Rank=%d:\n",rank);
-            atomic_data_validation_print_summary();
-            printf("-------------------------------------------\n");
+    if (options.validate) {
+        for (int jrank_print=0; jrank_print<2; jrank_print++) {
+            if (jrank_print == rank) {
+                printf("-------------------------------------------\n");
+                printf("Atomic Data Validation results for Rank=%d:\n",rank);
+                atomic_data_validation_print_summary();
+                printf("-------------------------------------------\n");
+            }
+            MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         }
-        MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
     }
 
 
@@ -223,13 +188,30 @@ int main (int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-void print_latency(int rank, int size)
+void print_latency(int rank, int size, float latency_factor)
 {
-    if (rank == 0) {
-        fprintf(stdout, "%-*d%*.*f\n", 10, size, FIELD_WIDTH,
-                FLOAT_PRECISION, (t_end - t_start) * 1.0e6 / options.iterations);
+    char *validation_string;
+    if (rank != 0) return;
+    if ( options.validate ) {
+        if (2 & validation_error_flag) validation_string = "skipped";
+        else if (1 & validation_error_flag) validation_string = "failed";
+        else validation_string = "passed";
+
+        fprintf(stdout, "%-*d%*.*f%*s\n", 10, size, FIELD_WIDTH,
+                FLOAT_PRECISION, (t_end - t_start) * 1.0e6 * latency_factor 
+                / options.iterations,
+                FIELD_WIDTH, validation_string);
         fflush(stdout);
+        validation_error_flag = 0;
+        return;
+    } else {
+        fprintf(stdout, "%-*d%*.*f\n", 10, size, FIELD_WIDTH,
+                FLOAT_PRECISION, (t_end - t_start) * 1.0e6 * latency_factor
+                / options.iterations);
+        fflush(stdout);
+        return;
     }
+    
 }
 
 /*Run FOP with flush local*/
@@ -238,8 +220,7 @@ void run_fop_with_flush_local(int rank, enum WINDOW win_type, MPI_Datatype data_
     double t_graph_start = 0.0, t_graph_end = 0.0;
     omb_graph_data_t *omb_graph_data = NULL;
     int papi_eventset = OMB_PAPI_NULL;
-    int i;
-    int jrank;
+    int i, jrank, dtype_size;
     MPI_Win     win;
     MPI_Aint disp = 0;
 
@@ -248,13 +229,16 @@ void run_fop_with_flush_local(int rank, enum WINDOW win_type, MPI_Datatype data_
             &omb_graph_op, 8, options.iterations);
     omb_papi_init(&papi_eventset);
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+    MPI_CHECK(MPI_Type_size(data_type, &dtype_size));
 
     allocate_atomic_memory(rank, (char **)&sbuf,
             (char **)&tbuf, NULL, (char **)&win_base, options.max_message_size, win_type, &win);
 
-    atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
-    atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
-    atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+    if (options.validate) {
+        atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+        atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+        atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+    }
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
     if (rank == 0) {
@@ -279,23 +263,27 @@ void run_fop_with_flush_local(int rank, enum WINDOW win_type, MPI_Datatype data_
                             t_graph_start) * 1.0e6;
                 }
             }
-            if (i == 0) {
+            if (i == 0 && options.validate) {
                 MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-                atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 0, 1);
+                atomic_data_validation_check( 
+                    data_type, op, rank, win_base, tbuf,
+                    options.max_message_size, 0, 1,
+                    &validation_error_flag);
             }
         }
         t_end = MPI_Wtime ();
         MPI_CHECK(MPI_Win_unlock(1, win));
-    }
-    else {
+    } else if (options.validate) {
         MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-        atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 0);
+        atomic_data_validation_check(
+            data_type, op, rank, win_base, tbuf, options.max_message_size,
+            1, 0, &validation_error_flag );
     }
 
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
-    omb_papi_stop_and_print(&papi_eventset, 8);
-    print_latency(rank, 8);
+    omb_papi_stop_and_print(&papi_eventset, dtype_size);
+    print_latency(rank, dtype_size, 1);
     if (options.graph && 0 == rank) {
         omb_graph_data->avg = (t_end - t_start) * 1.0e6 / options.iterations;
     }
@@ -312,7 +300,7 @@ void run_fop_with_flush(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
     double t_graph_start = 0.0, t_graph_end = 0.0;
     omb_graph_data_t *omb_graph_data = NULL;
     int papi_eventset = OMB_PAPI_NULL;
-    int i;
+    int i, dtype_size;
     MPI_Aint disp = 0;
     MPI_Win     win;
 
@@ -321,13 +309,16 @@ void run_fop_with_flush(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
             &omb_graph_op, 8, options.iterations);
     omb_papi_init(&papi_eventset);
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+    MPI_CHECK(MPI_Type_size(data_type, &dtype_size));
 
     allocate_atomic_memory(rank, (char **)&sbuf,
             (char **)&tbuf, NULL, (char **)&win_base, options.max_message_size, win_type, &win);
 
-    atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
-    atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
-    atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+    if (options.validate) {
+        atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+        atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+        atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+    }
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
     if (rank == 0) {
@@ -352,23 +343,26 @@ void run_fop_with_flush(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
                             t_graph_start) * 1.0e6;
                 }
             }
-            if (i == 0) {
-                atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 0, 1);
+            if (i == 0 && options.validate) {
+                atomic_data_validation_check(
+                    data_type, op, rank, win_base, tbuf,
+                    options.max_message_size, 0, 1, &validation_error_flag);
                 MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             }
         }
         t_end = MPI_Wtime ();
         MPI_CHECK(MPI_Win_unlock(1, win));
-    }
-    else {
+    } else if (options.validate) {
         MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-        atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 0);
+        atomic_data_validation_check(
+            data_type, op, rank, win_base, tbuf, options.max_message_size,
+            1, 0, &validation_error_flag);
     }
 
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
-    omb_papi_stop_and_print(&papi_eventset, 8);
-    print_latency(rank, 8);
+    omb_papi_stop_and_print(&papi_eventset, dtype_size);
+    print_latency(rank, dtype_size, 1);
     if (options.graph && 0 == rank) {
         omb_graph_data->avg = (t_end - t_start) * 1.0e6 / options.iterations;
     }
@@ -384,9 +378,11 @@ void run_fop_with_lock_all(int rank, enum WINDOW win_type, MPI_Datatype data_typ
     double t_graph_start = 0.0, t_graph_end = 0.0;
     omb_graph_data_t *omb_graph_data = NULL;
     int papi_eventset = OMB_PAPI_NULL;
-    int i;
+    int i, dtype_size;
     MPI_Aint disp = 0;
     MPI_Win     win;
+
+    MPI_CHECK(MPI_Type_size(data_type, &dtype_size));
 
     omb_graph_op.number_of_graphs = 0;
     omb_graph_allocate_and_get_data_buffer(&omb_graph_data,
@@ -395,9 +391,11 @@ void run_fop_with_lock_all(int rank, enum WINDOW win_type, MPI_Datatype data_typ
     allocate_atomic_memory(rank, (char **)&sbuf,
             (char **)&tbuf, NULL, (char **)&win_base, options.max_message_size, win_type, &win);
 
-    atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
-    atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
-    atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+    if (options.validate) {
+        atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+        atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+        atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+    }
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
 
@@ -424,22 +422,25 @@ void run_fop_with_lock_all(int rank, enum WINDOW win_type, MPI_Datatype data_typ
                             t_graph_start) * 1.0e6;
                 }
             }
-            if (i == 0) {
+            if (i == 0 && options.validate) {
                 MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-                atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 0, 1);
+                atomic_data_validation_check(
+                    data_type, op, rank, win_base, tbuf,
+                    options.max_message_size, 0, 1, &validation_error_flag);
             }
         }
         t_end = MPI_Wtime ();
-    }
-    else {
+    } else if (options.validate) {
         MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-        atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 0);
+        atomic_data_validation_check(
+            data_type, op, rank, win_base, tbuf,options.max_message_size,
+            1, 0, &validation_error_flag);
     }
 
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
-    omb_papi_stop_and_print(&papi_eventset, 8);
-    print_latency(rank, 8);
+    omb_papi_stop_and_print(&papi_eventset, dtype_size);
+    print_latency(rank, dtype_size, 1);
     if (options.graph && 0 == rank) {
         omb_graph_data->avg = (t_end - t_start) * 1.0e6 / options.iterations;
     }
@@ -452,12 +453,14 @@ void run_fop_with_lock_all(int rank, enum WINDOW win_type, MPI_Datatype data_typ
 /*Run FOP with Lock/unlock */
 void run_fop_with_lock(int rank, enum WINDOW win_type, MPI_Datatype data_type, MPI_Op op)
 {
-    int i;
+    int i, dtype_size;
     double t_graph_start = 0.0, t_graph_end = 0.0;
     omb_graph_data_t *omb_graph_data = NULL;
     int papi_eventset = OMB_PAPI_NULL;
     MPI_Aint disp = 0;
     MPI_Win     win;
+
+    MPI_CHECK(MPI_Type_size(data_type, &dtype_size));
 
     omb_graph_op.number_of_graphs = 0;
     omb_graph_allocate_and_get_data_buffer(&omb_graph_data,
@@ -466,9 +469,11 @@ void run_fop_with_lock(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
     allocate_atomic_memory(rank, (char **)&sbuf,
             (char **)&tbuf, NULL, (char **)&win_base, options.max_message_size, win_type, &win);
 
-    atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
-    atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
-    atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+    if (options.validate) {
+        atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+        atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+        atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+    }
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
 
@@ -495,23 +500,26 @@ void run_fop_with_lock(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
                             t_graph_start) * 1.0e6;
                 }
             }
-            if (i == 0) {
+            if (i == 0 && options.validate) {
                 MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-                atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 0, 1);
+                atomic_data_validation_check(
+                    data_type, op, rank, win_base, tbuf,
+                    options.max_message_size, 0, 1, &validation_error_flag);
             }
         }
         t_end = MPI_Wtime ();
-    }
-    else {
+    } else if (options.validate) {
         MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-        atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 0);
+        atomic_data_validation_check(
+            data_type, op, rank, win_base, tbuf, options.max_message_size,
+            1, 0, &validation_error_flag);
     }
 
 
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
-    omb_papi_stop_and_print(&papi_eventset, 8);
-    print_latency(rank, 8);
+    omb_papi_stop_and_print(&papi_eventset, dtype_size);
+    print_latency(rank, dtype_size, 1);
     if (options.graph && 0 == rank) {
         omb_graph_data->avg = (t_end - t_start) * 1.0e6 / options.iterations;
     }
@@ -527,9 +535,11 @@ void run_fop_with_fence(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
     double t_graph_start = 0.0, t_graph_end = 0.0;
     omb_graph_data_t *omb_graph_data = NULL;
     int papi_eventset = OMB_PAPI_NULL;
-    int i;
+    int i, dtype_size;
     MPI_Aint disp = 0;
     MPI_Win     win;
+
+    MPI_CHECK(MPI_Type_size(data_type, &dtype_size));
 
     allocate_atomic_memory(rank, (char **)&sbuf,
             (char **)&tbuf, NULL, (char **)&win_base, options.max_message_size, win_type, &win);
@@ -550,9 +560,11 @@ void run_fop_with_fence(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
                 t_start = MPI_Wtime ();
             }
             if (i >= options.skip) {
-                atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
-                atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
-                atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+                if (options.validate) {
+                    atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
+                    atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
+                    atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
+                }
                 t_graph_start = MPI_Wtime();
             }
             MPI_CHECK(MPI_Win_fence(0, win));
@@ -565,7 +577,11 @@ void run_fop_with_fence(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
                     omb_graph_data->data[i - options.skip] = (t_graph_end -
                             t_graph_start) * 1.0e6;
                 }
-                atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 1);
+                if (options.validate) {
+                    atomic_data_validation_check(
+                        data_type, op, rank, win_base, tbuf,
+                        options.max_message_size, 1, 1, &validation_error_flag);
+                }
             }
         }
         t_end = MPI_Wtime ();
@@ -574,7 +590,7 @@ void run_fop_with_fence(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
             if (i == options.skip) {
                 omb_papi_start(&papi_eventset);
             }
-            if (i >= options.skip) {
+            if (i >= options.skip && options.validate) {
                 atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
                 atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
                 atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
@@ -583,8 +599,10 @@ void run_fop_with_fence(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
             MPI_CHECK(MPI_Win_fence(0, win));
             MPI_CHECK(MPI_Fetch_and_op(sbuf, tbuf, data_type, 0, disp, op, win));
             MPI_CHECK(MPI_Win_fence(0, win));
-            if (i >= options.skip) {
-                atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 1);
+            if (i >= options.skip && options.validate) {
+                atomic_data_validation_check(
+                    data_type, op, rank, win_base, tbuf,
+                    options.max_message_size, 1, 1, &validation_error_flag);
             }
 
         }
@@ -592,18 +610,14 @@ void run_fop_with_fence(int rank, enum WINDOW win_type, MPI_Datatype data_type, 
 
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
-    omb_papi_stop_and_print(&papi_eventset, 8);
-    if (rank == 0) {
-        fprintf(stdout, "%-*d%*.*f\n", 10, 8, FIELD_WIDTH,
-                FLOAT_PRECISION, (t_end - t_start) * 1.0e6 / options.iterations / 2);
-        fflush(stdout);
-        if (options.graph && 0 == rank) {
-            omb_graph_data->avg = (t_end - t_start) * 1.0e6 /
-                options.iterations/ 2;
-        }
-        omb_graph_plot(&omb_graph_op, benchmark_name);
-        omb_graph_free_data_buffers(&omb_graph_op);
+    omb_papi_stop_and_print(&papi_eventset, dtype_size);
+    print_latency(rank, dtype_size, 0.5);
+    if (options.graph && 0 == rank) {
+        omb_graph_data->avg = (t_end - t_start) * 1.0e6 /
+            options.iterations/ 2;
     }
+    omb_graph_plot(&omb_graph_op, benchmark_name);
+    omb_graph_free_data_buffers(&omb_graph_op);
 
     omb_papi_free(&papi_eventset);
     free_atomic_memory (sbuf, win_base, tbuf, NULL, win_type, win, rank);
@@ -615,12 +629,13 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
     double t_graph_start = 0.0, t_graph_end = 0.0;
     omb_graph_data_t *omb_graph_data = NULL;
     int papi_eventset = OMB_PAPI_NULL;
-    int destrank, i;
+    int destrank, i, dtype_size;
     MPI_Aint disp = 0;
     MPI_Win     win;
 
     MPI_Group       comm_group, group;
     MPI_CHECK(MPI_Comm_group(MPI_COMM_WORLD, &comm_group));
+    MPI_CHECK(MPI_Type_size(data_type, &dtype_size));
 
     omb_graph_op.number_of_graphs = 0;
     omb_graph_allocate_and_get_data_buffer(&omb_graph_data,
@@ -642,7 +657,6 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
 
         for (i = 0; i < options.skip + options.iterations; i++) {
             if (i >= options.skip) {
-                // printf("Rank=%d, Iteration %d\n",rank,i);
                 atomic_data_validation_setup(data_type, rank, sbuf, options.max_message_size);
                 atomic_data_validation_setup(data_type, rank, tbuf, options.max_message_size);
                 atomic_data_validation_setup(data_type, rank, win_base, options.max_message_size);
@@ -669,7 +683,11 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
                     omb_graph_data->data[i - options.skip] = (t_graph_end -
                             t_graph_start) * 1.0e6;
                 }
-                atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 1);
+                if (options.validate) {
+                    atomic_data_validation_check(
+                        data_type, op, rank, win_base, tbuf,
+                        options.max_message_size, 1, 1, &validation_error_flag);
+                }
             }
         }
 
@@ -697,25 +715,21 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
             MPI_CHECK(MPI_Win_start(group, 0, win));
             MPI_CHECK(MPI_Fetch_and_op(sbuf, tbuf, data_type, 0, disp, op, win));
             MPI_CHECK(MPI_Win_complete(win));
-            if (i >= options.skip) {
-                atomic_data_validation_check(data_type, op, rank, win_base, tbuf, options.max_message_size, 1, 1);
+            if (i >= options.skip && options.validate) {
+                atomic_data_validation_check(
+                    data_type, op, rank, win_base, tbuf,
+                    options.max_message_size, 1, 1, &validation_error_flag);
             }
         }
     }
 
     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
-    omb_papi_stop_and_print(&papi_eventset, 8);
-    if (rank == 0) {
-        fprintf(stdout, "%-*d%*.*f\n", 10, 8, FIELD_WIDTH,
-                FLOAT_PRECISION, (t_end - t_start) * 1.0e6 / options.iterations / 2);
-        fflush(stdout);
-        if (options.graph && 0 == rank) {
-            omb_graph_data->avg = (t_end - t_start) * 1.0e6 / options.iterations
-                / 2;
-        }
-        omb_graph_plot(&omb_graph_op, benchmark_name);
-        omb_graph_free_data_buffers(&omb_graph_op);
+    omb_papi_stop_and_print(&papi_eventset, dtype_size);
+    print_latency(rank, dtype_size, 0.5);
+    if (options.graph && 0 == rank) {
+        omb_graph_data->avg = (t_end - t_start) * 1.0e6 / options.iterations
+            / 2;
     }
 
     omb_papi_free(&papi_eventset);

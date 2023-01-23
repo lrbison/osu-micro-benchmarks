@@ -10,13 +10,26 @@
 // not consistent with errno.h, but errno.h conflicts with CUDA_CHECK macro.
 #define ENODATA 2
 
+static char rank_buffer_type = '\0';
+
+static char inline get_rank_buffer_type() {
+	if (rank_buffer_type == '\0') {
+		int rank;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		rank_buffer_type = (rank == 0) ? options.src : options.dst;
+	}
+	return rank_buffer_type;
+}
+
 static int set_hmem_buffer (void *dst, void *src, size_t size)
 {
-	// return;
-    switch (options.accel) {
-	case NONE:
+	char buf_type = get_rank_buffer_type();
+
+	if (buf_type == 'H' || options.accel == NONE) {
 		memcpy(dst, src, size);
-		break;
+		return 0;
+	}
+    switch (options.accel) {
 #ifdef _ENABLE_CUDA_
         case CUDA:
 		CUDA_CHECK(cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice));
@@ -32,11 +45,12 @@ static int set_hmem_buffer (void *dst, void *src, size_t size)
 
 static int get_hmem_buffer (void *dst, void *src, size_t size)
 {
-	// return;
-    switch (options.accel) {
-	case NONE:
+	char buf_type = get_rank_buffer_type();
+	if (rank_buffer_type == 'H' || options.accel == NONE) {
 		memcpy(dst, src, size);
-		break;
+		return 0;
+	}
+    switch (options.accel) {
 #ifdef _ENABLE_CUDA_
         case CUDA:
 		CUDA_CHECK(cudaMemcpy(dst, src, size, cudaMemcpyDeviceToHost));
@@ -66,52 +80,52 @@ struct atomic_dv_summary {
 struct atomic_dv_summary* dv_summary_root = NULL;
 
 typedef enum type_of_enum {
-    FI_TYPE_ATOMIC_TYPE,
-    FI_TYPE_ATOMIC_OP
+    OSC_TYPE_ATOMIC_TYPE,
+    OSC_TYPE_ATOMIC_OP
 } type_of_enum;
 
-char fi_str_output[256];
-char* fi_tostr(void *val, type_of_enum type_type) {
-	memset(fi_str_output, 0, sizeof(fi_str_output));
-	if (type_type == FI_TYPE_ATOMIC_OP) {
+char osc_str_output[256];
+char* osc_tostr(void *val, type_of_enum type_type) {
+	memset(osc_str_output, 0, sizeof(osc_str_output));
+	if (type_type == OSC_TYPE_ATOMIC_OP) {
 		MPI_Op op = *(MPI_Op*)val;
-		if (-1 == *(int*)val)	sprintf(fi_str_output,"%s", "Compare-And-Swap");
-		if (op == MPI_OP_NULL)  sprintf(fi_str_output,"%s", "MPI_OP_NULL");
-		if (op == MPI_MAX)      sprintf(fi_str_output,"%s", "MPI_MAX");
-		if (op == MPI_MIN)      sprintf(fi_str_output,"%s", "MPI_MIN");
-		if (op == MPI_SUM)      sprintf(fi_str_output,"%s", "MPI_SUM");
-		if (op == MPI_PROD)     sprintf(fi_str_output,"%s", "MPI_PROD");
-		if (op == MPI_LAND)	sprintf(fi_str_output,"%s", "MPI_LAND");
-		if (op == MPI_BAND)     sprintf(fi_str_output,"%s", "MPI_BAND");
-		if (op == MPI_LOR)      sprintf(fi_str_output,"%s", "MPI_LOR");
-		if (op == MPI_BOR)      sprintf(fi_str_output,"%s", "MPI_BOR");
-		if (op == MPI_LXOR)     sprintf(fi_str_output,"%s", "MPI_LXOR");
-		if (op == MPI_BXOR)     sprintf(fi_str_output,"%s", "MPI_BXOR");
-		if (op == MPI_MINLOC)	sprintf(fi_str_output,"%s", "MPI_MINLOC");
-		if (op == MPI_MAXLOC)   sprintf(fi_str_output,"%s", "MPI_MAXLOC");
-		if (op == MPI_REPLACE)  sprintf(fi_str_output,"%s", "MPI_REPLACE");
+		if (-1 == *(int*)val)	sprintf(osc_str_output,"%s", "Compare-And-Swap");
+		if (op == MPI_OP_NULL)  sprintf(osc_str_output,"%s", "MPI_OP_NULL");
+		if (op == MPI_MAX)      sprintf(osc_str_output,"%s", "MPI_MAX");
+		if (op == MPI_MIN)      sprintf(osc_str_output,"%s", "MPI_MIN");
+		if (op == MPI_SUM)      sprintf(osc_str_output,"%s", "MPI_SUM");
+		if (op == MPI_PROD)     sprintf(osc_str_output,"%s", "MPI_PROD");
+		if (op == MPI_LAND)	sprintf(osc_str_output,"%s", "MPI_LAND");
+		if (op == MPI_BAND)     sprintf(osc_str_output,"%s", "MPI_BAND");
+		if (op == MPI_LOR)      sprintf(osc_str_output,"%s", "MPI_LOR");
+		if (op == MPI_BOR)      sprintf(osc_str_output,"%s", "MPI_BOR");
+		if (op == MPI_LXOR)     sprintf(osc_str_output,"%s", "MPI_LXOR");
+		if (op == MPI_BXOR)     sprintf(osc_str_output,"%s", "MPI_BXOR");
+		if (op == MPI_MINLOC)	sprintf(osc_str_output,"%s", "MPI_MINLOC");
+		if (op == MPI_MAXLOC)   sprintf(osc_str_output,"%s", "MPI_MAXLOC");
+		if (op == MPI_REPLACE)  sprintf(osc_str_output,"%s", "MPI_REPLACE");
 	}
-	if (type_type == FI_TYPE_ATOMIC_TYPE) {
+	if (type_type == OSC_TYPE_ATOMIC_TYPE) {
 		MPI_Datatype type = *(MPI_Datatype*)val;
-		if (type == MPI_DATATYPE_NULL)		sprintf(fi_str_output,"%s", "MPI_DATATYPE_NULL");
-		if (type == MPI_SIGNED_CHAR)		sprintf(fi_str_output,"%s", "MPI_SIGNED_CHAR");
-		if (type == MPI_UNSIGNED_CHAR)		sprintf(fi_str_output,"%s", "MPI_UNSIGNED_CHAR");
-		if (type == MPI_SHORT)			sprintf(fi_str_output,"%s", "MPI_SHORT");
-		if (type == MPI_UNSIGNED_SHORT)		sprintf(fi_str_output,"%s", "MPI_UNSIGNED_SHORT");
-		if (type == MPI_INT)			sprintf(fi_str_output,"%s", "MPI_INT");
-		if (type == MPI_UNSIGNED)		sprintf(fi_str_output,"%s", "MPI_UNSIGNED");
-		if (type == MPI_LONG)			sprintf(fi_str_output,"%s", "MPI_LONG");
-		if (type == MPI_UNSIGNED_LONG)  	sprintf(fi_str_output,"%s", "MPI_UNSIGNED_LONG");
-		if (type == MPI_LONG_LONG)      	sprintf(fi_str_output,"%s", "MPI_LONG_LONG");
-		if (type == MPI_UNSIGNED_LONG_LONG)     sprintf(fi_str_output,"%s", "MPI_UNSIGNED_LONG_LONG");
-		if (type == MPI_FLOAT)     		sprintf(fi_str_output,"%s", "MPI_FLOAT");
-		if (type == MPI_DOUBLE)			sprintf(fi_str_output,"%s", "MPI_DOUBLE");
-		if (type == MPI_LONG_DOUBLE)   		sprintf(fi_str_output,"%s", "MPI_LONG_DOUBLE");
-		if (type == MPI_C_FLOAT_COMPLEX)	sprintf(fi_str_output,"%s", "MPI_C_FLOAT_COMPLEX");
-		if (type == MPI_C_DOUBLE_COMPLEX) 	sprintf(fi_str_output,"%s", "MPI_C_DOUBLE_COMPLEX");
-		if (type == MPI_C_LONG_DOUBLE_COMPLEX)	sprintf(fi_str_output,"%s", "MPI_C_LONG_DOUBLE_COMPLEX");
+		if (type == MPI_DATATYPE_NULL)		sprintf(osc_str_output,"%s", "MPI_DATATYPE_NULL");
+		if (type == MPI_SIGNED_CHAR)		sprintf(osc_str_output,"%s", "MPI_SIGNED_CHAR");
+		if (type == MPI_UNSIGNED_CHAR)		sprintf(osc_str_output,"%s", "MPI_UNSIGNED_CHAR");
+		if (type == MPI_SHORT)			sprintf(osc_str_output,"%s", "MPI_SHORT");
+		if (type == MPI_UNSIGNED_SHORT)		sprintf(osc_str_output,"%s", "MPI_UNSIGNED_SHORT");
+		if (type == MPI_INT)			sprintf(osc_str_output,"%s", "MPI_INT");
+		if (type == MPI_UNSIGNED)		sprintf(osc_str_output,"%s", "MPI_UNSIGNED");
+		if (type == MPI_LONG)			sprintf(osc_str_output,"%s", "MPI_LONG");
+		if (type == MPI_UNSIGNED_LONG)  	sprintf(osc_str_output,"%s", "MPI_UNSIGNED_LONG");
+		if (type == MPI_LONG_LONG)      	sprintf(osc_str_output,"%s", "MPI_LONG_LONG");
+		if (type == MPI_UNSIGNED_LONG_LONG)     sprintf(osc_str_output,"%s", "MPI_UNSIGNED_LONG_LONG");
+		if (type == MPI_FLOAT)     		sprintf(osc_str_output,"%s", "MPI_FLOAT");
+		if (type == MPI_DOUBLE)			sprintf(osc_str_output,"%s", "MPI_DOUBLE");
+		if (type == MPI_LONG_DOUBLE)   		sprintf(osc_str_output,"%s", "MPI_LONG_DOUBLE");
+		if (type == MPI_C_FLOAT_COMPLEX)	sprintf(osc_str_output,"%s", "MPI_C_FLOAT_COMPLEX");
+		if (type == MPI_C_DOUBLE_COMPLEX) 	sprintf(osc_str_output,"%s", "MPI_C_DOUBLE_COMPLEX");
+		if (type == MPI_C_LONG_DOUBLE_COMPLEX)	sprintf(osc_str_output,"%s", "MPI_C_LONG_DOUBLE_COMPLEX");
 	}
-	return fi_str_output;
+	return osc_str_output;
 }
 
 int mpi_op_enumerate(MPI_Op op) {
@@ -207,8 +221,8 @@ int atomic_data_validation_print_summary() {
 	}
 
 	while(node) {
-		snprintf(type_str, sizeof(type_str)-1, "%s", fi_tostr(&node->datatype, FI_TYPE_ATOMIC_TYPE));
-		snprintf(op_str, sizeof(op_str)-1, "%s", fi_tostr(&node->op, FI_TYPE_ATOMIC_OP));
+		snprintf(type_str, sizeof(type_str)-1, "%s", osc_tostr(&node->datatype, OSC_TYPE_ATOMIC_TYPE));
+		snprintf(op_str, sizeof(op_str)-1, "%s", osc_tostr(&node->op, OSC_TYPE_ATOMIC_OP));
 		snprintf(test_name, sizeof(test_name), "%s on %s", op_str, type_str);
 		validation_combos += 1;
 
@@ -363,13 +377,6 @@ case ENUM_OF_##ftype:									\
 	atomic_case(dtype, DMPI_BAND)			\
 	atomic_case(dtype, DMPI_LXOR)			\
 	atomic_case(dtype, DMPI_BXOR)
-	// atomic_case_compare(dtype, FI_CSWAP)		\
-	// atomic_case_compare(dtype, FI_CSWAP_NE)	\
-	// atomic_case_compare(dtype, FI_CSWAP_LE)	\
-	// atomic_case_compare(dtype, FI_CSWAP_LT)	\
-	// atomic_case_compare(dtype, FI_CSWAP_GE)	\
-	// atomic_case_compare(dtype, FI_CSWAP_GT)	\
-	// atomic_case_compare(dtype, FI_MSWAP)
 
 
 #define atomic_real_float_ops(dtype)		\
@@ -379,29 +386,11 @@ case ENUM_OF_##ftype:									\
 	atomic_case(dtype, DMPI_PROD)			\
 	atomic_case(dtype, DMPI_LOR)			\
 	atomic_case(dtype, DMPI_LAND)			\
-	atomic_case(dtype, DMPI_LXOR)			
-	// atomic_case(dtype, FI_ATOMIC_READ)		\
-	// atomic_case(dtype, FI_ATOMIC_WRITE)		\
-	// atomic_case_compare(dtype, FI_CSWAP)	\
-	// atomic_case_compare(dtype, FI_CSWAP_NE)	\
-	// atomic_case_compare(dtype, FI_CSWAP_LE)	\
-	// atomic_case_compare(dtype, FI_CSWAP_LT)	\
-	// atomic_case_compare(dtype, FI_CSWAP_GE)	\
-	// atomic_case_compare(dtype, FI_CSWAP_GT)
+	atomic_case(dtype, DMPI_LXOR)
 
-#define atomic_complex_float_ops(dtype, absfun)			\
+#define atomic_complex_float_ops(dtype, absfun)	\
 	atomic_case(dtype, DMPI_SUM)				\
-	atomic_case(dtype, DMPI_PROD)				
-	// atomic_case_cplx(dtype, MPI_MIN, absfun)			
-	// atomic_case_cplx(dtype, MPI_MAX, absfun)			
-	
-	// atomic_case(dtype, MPI_LOR)				\
-	// atomic_case(dtype, MPI_LAND)				\
-	// atomic_case(dtype, MPI_LXOR)				\
-	// atomic_case(dtype, FI_ATOMIC_READ)			\
-	// atomic_case(dtype, FI_ATOMIC_WRITE)			\
-	// atomic_case_compare(dtype, FI_CSWAP)			\
-	// atomic_case_compare(dtype, FI_CSWAP_NE)			\
+	atomic_case(dtype, DMPI_PROD)
 
 
 int perform_atomic_op(	MPI_Datatype dtype,
@@ -508,7 +497,7 @@ static int validation_input_value(MPI_Datatype dtype, int jrank, void *val) {
 	else {
 		fprintf(stderr, "No initial value defined, cannot perform data validation "
 				"on atomic operations using %s\n",
-			fi_tostr(&dtype, FI_TYPE_ATOMIC_TYPE) );
+			osc_tostr(&dtype, OSC_TYPE_ATOMIC_TYPE) );
 		return -1;
 	}
 	return 0;
@@ -702,19 +691,35 @@ static void print_failure_message(MPI_Datatype datatype,
 		if (adr_obs) PRINT_ADR_COMPARISON_CPLX("Lf",creall,cimagl,*(long double complex*)adr_in,*(long double complex*)buf_in,*(long double complex*)compare_in,*(long double complex*)adr_obs,*(long double complex*)adr_expect);
 		if (res_obs) PRINT_RES_COMPARISON_CPLX("Lf",creall,cimagl,*(long double complex*)adr_in,*(long double complex*)buf_in,*(long double complex*)compare_in,*(long double complex*)res_obs,*(long double complex*)res_expect);
 	}
-			// case FI_FLOAT:
-			// 	if (adr_obs) PRINT_ADR_COMPARISON(FI_FLOAT,"%f",adr_in,buf_in,compare_in,adr_obs,adr_expect);
-			// 	if (res_obs) PRINT_RES_COMPARISON(FI_FLOAT,"%f",adr_in,buf_in,compare_in,res_obs,res_expect);
-			// 	break;
-			// case FI_DOUBLE:
-			// 	if (adr_obs) PRINT_ADR_COMPARISON(FI_DOUBLE,"%f",adr_in,buf_in,compare_in,adr_obs,adr_expect);
-			// 	if (res_obs) PRINT_RES_COMPARISON(FI_DOUBLE,"%f",adr_in,buf_in,compare_in,res_obs,res_expect);
-			// 	break;
-			// default:
-			// 	break;
 }
 
-int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, void *addr, void *res, size_t buf_size, bool check_addr, bool check_result) {
+/**
+ * Checks the result of an operation descriped by op.
+ * 
+ * Arguments:
+ *   datatype: the type of data being operated on
+ *   op: The operation to do.  -1 means Compare-and-swap.
+ *   jrank: the rank of this processes
+ *   addr: the pointer to a local buffer that may have been operated on
+ *   res: the fetch result from the operation
+ *   buf_size: the number of bytes operated on
+ *   check_addr: true if the remote has done an operation on addr.
+ *   check_result: true if this process did an operation on a remote.
+ *   validation_results: a bitmask which is updated.  User should set to 0.
+ *          |=1 when failure occurred.
+ *          |=2 when no validation performed.
+ * Note that addr and res might be in GPU memory or in system memory.
+ * Validation will only pass if both local and remote memories were initialized
+ * with atomic_data_validation_setup.
+ * 
+ * Additionally validation results are saved in a list and can be printed with
+ * atomic_data_validation_print_summary().
+ */
+int atomic_data_validation_check(
+	MPI_Datatype datatype, MPI_Op op, int jrank, void *addr, void *res,
+	size_t buf_size, bool check_addr, bool check_result, int *validation_results
+	)
+{
 	// these all fit the maximum atom size of 256 bits.
 	const int MAX_ATOM_BYTES=64;
 	char local_addr[MAX_ATOM_BYTES],            remote_addr[MAX_ATOM_BYTES];
@@ -735,6 +740,8 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
 	if (err) return err;
 
 	natoms = buf_size/dtype_size;
+	natoms = 1;
+
 
 	// setup initial conditions so we can mock the test
 	err  = validation_input_value(datatype, jrank, local_addr);
@@ -767,11 +774,11 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
 	// 		creall(local_addr),remote_addr, expected_local_addr);
 	// }
 
-
-	err  = get_hmem_buffer(local_addr_in_sysmem, addr, buf_size );
-	err |= get_hmem_buffer(local_result_in_sysmem, res, buf_size );
+	err = 0;
+	if (check_addr)   err |= get_hmem_buffer(local_addr_in_sysmem, addr, buf_size );
+	if (check_result) err |= get_hmem_buffer(local_result_in_sysmem, res, buf_size );
+	
 	if (err) goto error;
-	natoms = 1;
 	for (jatom=0; jatom < natoms; jatom++) {
 		addr_eq = 1;
 		res_eq = 1;
@@ -780,9 +787,9 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
 										   local_addr_in_sysmem + jatom*dtype_size);
 		}
 		if (!addr_eq) {
-			fprintf( stderr, "FAILED: Remote atomic operation %s",fi_tostr(&op, FI_TYPE_ATOMIC_OP));
+			fprintf( stderr, "FAILED: Remote atomic operation %s",osc_tostr(&op, OSC_TYPE_ATOMIC_OP));
 			fprintf(stderr, " on %s failed validation of addr at atom index %d.\n",
-				fi_tostr(&datatype,    FI_TYPE_ATOMIC_TYPE),
+				osc_tostr(&datatype,    OSC_TYPE_ATOMIC_TYPE),
 				jatom );
 			print_failure_message( datatype,
 				local_addr, remote_buf, remote_compare,
@@ -794,9 +801,9 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
 										  local_result_in_sysmem + jatom*dtype_size);
 		}
 		if (!res_eq) {
-			fprintf( stderr, "FAILED: Local atomic operation %s",fi_tostr(&op, FI_TYPE_ATOMIC_OP));
+			fprintf( stderr, "FAILED: Local atomic operation %s",osc_tostr(&op, OSC_TYPE_ATOMIC_OP));
 			fprintf(stderr, " on %s failed validation of result at atom index %d.\n",
-				fi_tostr(&datatype, FI_TYPE_ATOMIC_TYPE),
+				osc_tostr(&datatype, OSC_TYPE_ATOMIC_TYPE),
 				jatom );
 			print_failure_message( datatype,
 				remote_addr, local_buf, local_compare,
@@ -809,10 +816,12 @@ int atomic_data_validation_check(MPI_Datatype datatype, MPI_Op op, int jrank, vo
 		}
 	}
 	atomic_dv_record(datatype, op, any_errors, 1);
+	if (any_errors) *validation_results |= 1;
 	return 0;
 
 nocheck:
 	atomic_dv_record(datatype, op, 0, 0);
+	*validation_results |= 2;
 	return 0;
 error:
 	atomic_dv_record(datatype, op, 0, 0);
