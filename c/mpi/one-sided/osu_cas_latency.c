@@ -59,7 +59,7 @@ int main (int argc, char *argv[])
         MPI_INT, MPI_UNSIGNED, MPI_LONG_LONG, MPI_UNSIGNED_LONG_LONG,
         MPI_FLOAT, MPI_DOUBLE, MPI_LONG_DOUBLE,
         };
-    const int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
+    int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
     int type_name_size = 0;
 
     options.win = WIN_ALLOCATE;
@@ -130,6 +130,11 @@ int main (int argc, char *argv[])
         }
         MPI_CHECK(MPI_Finalize());
         return EXIT_FAILURE;
+    }
+
+    if (1) {
+        dtype_list[0] = MPI_INT;
+        ntypes = 1;
     }
 
     for (int jtype_test=0; jtype_test<ntypes; jtype_test++)
