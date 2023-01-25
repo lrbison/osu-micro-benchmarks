@@ -55,8 +55,8 @@ int main (int argc, char *argv[])
         MPI_LOR, MPI_BOR,
         MPI_LXOR, MPI_BXOR,
     };
-    const int nops = sizeof(op_list)/sizeof(op_list[0]);
-    const int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
+    int nops = sizeof(op_list)/sizeof(op_list[0]);
+    int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
     int type_name_size = 0;
 
 
@@ -125,7 +125,12 @@ int main (int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-
+    if (1) {
+        dtype_list[0] = MPI_INT;
+        op_list[0] = MPI_SUM;
+        ntypes = 1;
+        nops = 1;
+    }
     for (int jdata_type = 0; jdata_type < ntypes; jdata_type++) {
     for (int jop = 0; jop < nops; jop++) {
 

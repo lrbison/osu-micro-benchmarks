@@ -42,8 +42,8 @@ int main (int argc, char *argv[])
         MPI_LOR, MPI_BOR,
         MPI_LXOR, MPI_BXOR,
     };
-    const int nops = sizeof(op_list)/sizeof(op_list[0]);
-    const int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
+    int nops = sizeof(op_list)/sizeof(op_list[0]);
+    int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
     int type_name_size = 0;
 
 
@@ -126,8 +126,11 @@ int main (int argc, char *argv[])
     }
 
     print_header_one_sided(rank, options.win, options.sync);
-    MPI_Datatype dtype = MPI_INT;
-    MPI_Op op = MPI_SUM;
+    if (1) {
+        dtype_list[0] = MPI_INT;
+        ntypes = 1;
+        nops = 1;
+    }
 
     for (int jtype_test=0; jtype_test<ntypes; jtype_test++) {
     for (int jop = 0; jop < nops; jop++) {
@@ -148,23 +151,23 @@ int main (int argc, char *argv[])
 
         switch (options.sync) {
             case LOCK:
-                run_acc_with_lock(rank, options.win, dtype_list[jtype_test], op);
+                run_acc_with_lock(rank, options.win, dtype_list[jtype_test], op_list[jop]);
                 break;
             case PSCW:
-                run_acc_with_pscw(rank, options.win, dtype_list[jtype_test], op);
+                run_acc_with_pscw(rank, options.win, dtype_list[jtype_test], op_list[jop]);
                 break;
             case FENCE:
-                run_acc_with_fence(rank, options.win, dtype_list[jtype_test], op);
+                run_acc_with_fence(rank, options.win, dtype_list[jtype_test], op_list[jop]);
                 break;
 #if MPI_VERSION >= 3
             case LOCK_ALL:
-                run_acc_with_lock_all(rank, options.win, dtype_list[jtype_test], op);
+                run_acc_with_lock_all(rank, options.win, dtype_list[jtype_test], op_list[jop]);
                 break;
             case FLUSH_LOCAL:
-                run_acc_with_flush_local(rank, options.win, dtype_list[jtype_test], op);
+                run_acc_with_flush_local(rank, options.win, dtype_list[jtype_test], op_list[jop]);
                 break;
             default:
-                run_acc_with_flush(rank, options.win, dtype_list[jtype_test], op);
+                run_acc_with_flush(rank, options.win, dtype_list[jtype_test], op_list[jop]);
                 break;
 #endif
         }
