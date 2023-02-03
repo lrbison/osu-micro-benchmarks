@@ -287,7 +287,7 @@ void run_acc_with_flush (int rank, enum WINDOW type, MPI_Datatype data_type, MPI
             }
             t_end = MPI_Wtime ();
             MPI_CHECK(MPI_Win_unlock(1, win));
-        } else {
+        } else if (options.validate) {
             atomic_data_validation_setup(data_type, rank, win_base, size);
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             // remote operation occurs
@@ -383,7 +383,7 @@ void run_acc_with_flush_local (int rank, enum WINDOW type, MPI_Datatype data_typ
             }
             t_end = MPI_Wtime ();
             MPI_CHECK(MPI_Win_unlock(1, win));
-        } else {
+        } else if (options.validate) {
             atomic_data_validation_setup(data_type, rank, win_base, size);
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             // remote operation occurs
@@ -478,7 +478,7 @@ void run_acc_with_lock_all (int rank, enum WINDOW type, MPI_Datatype data_type, 
                 }
             }
             t_end = MPI_Wtime ();
-        } else {
+        } else if (options.validate) {
             atomic_data_validation_setup(data_type, rank, win_base, size);
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             // remote operation occurs
@@ -576,7 +576,7 @@ void run_acc_with_lock(int rank, enum WINDOW type, MPI_Datatype data_type, MPI_O
 
             }
             t_end = MPI_Wtime ();
-        } else {
+        } else if (options.validate) {
             atomic_data_validation_setup(data_type, rank, win_base, size);
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             // remote operation occurs
