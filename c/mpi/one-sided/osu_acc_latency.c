@@ -29,7 +29,7 @@ int main (int argc, char *argv[])
 {
     int         po_ret = PO_OKAY;
     char    *type_name = NULL;
-    char    dtype_name_str[128];
+    char    dtype_name_str[MPI_MAX_OBJECT_NAME];
     MPI_Datatype dtype_list[] = {
         MPI_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,
         MPI_INT, MPI_UNSIGNED, MPI_LONG_LONG, MPI_UNSIGNED_LONG_LONG,
