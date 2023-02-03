@@ -18,6 +18,7 @@ int validation_error_flag = 0;
 int dtype_size;
 
 void print_latency (int, int, float);
+void gather_validation(int, int);
 void run_acc_with_lock (int, enum WINDOW, MPI_Datatype, MPI_Op);
 void run_acc_with_fence (int, enum WINDOW, MPI_Datatype, MPI_Op);
 void run_acc_with_lock_all (int, enum WINDOW, MPI_Datatype, MPI_Op);
@@ -201,11 +202,14 @@ int main (int argc, char *argv[])
 void print_latency(int rank, int size, float latency_factor)
 {
     char *validation_string;
+    gather_validation(rank, 2);
+
     if (rank != 0) return;
     if ( options.validate ) {
-        if (2 & validation_error_flag) validation_string = "skipped";
+        validation_string = "internalerror";
+        if (validation_error_flag == 2) validation_string = "skipped";
         else if (1 & validation_error_flag) validation_string = "failed";
-        else validation_string = "passed";
+        else if (4 & validation_error_flag) validation_string = "passed";
 
         fprintf(stdout, "%-*d%*.*f%*s\n", 10, size, FIELD_WIDTH,
                 FLOAT_PRECISION, (t_end - t_start) * 1.0e6 * latency_factor 
@@ -843,4 +847,18 @@ void run_acc_with_pscw(int rank, enum WINDOW type, MPI_Datatype data_type, MPI_O
     omb_papi_free(&papi_eventset);
     MPI_CHECK(MPI_Group_free(&comm_group));
 }
+
+void gather_validation(int rank, int nranks) {
+    int gathered_flags[nranks];
+
+    if (!options.validate) return;
+
+    MPI_CHECK(MPI_Gather(&validation_error_flag, 1, MPI_INT, &gathered_flags, 1, MPI_INT, 0, MPI_COMM_WORLD));
+    if (rank == 0) {
+        validation_error_flag = 0;
+        for (int i; i<nranks; i++)
+            validation_error_flag |= gathered_flags[i];
+    }
+}
+
 /* vi: set sw=4 sts=4 tw=80: */
