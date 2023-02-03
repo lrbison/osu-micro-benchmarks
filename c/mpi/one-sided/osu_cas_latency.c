@@ -55,7 +55,7 @@ int main (int argc, char *argv[])
     int         po_ret = PO_OKAY;
 
     MPI_Datatype dtype_list[] = {
-        MPI_SIGNED_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,
+        MPI_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,
         MPI_INT, MPI_UNSIGNED, MPI_LONG_LONG, MPI_UNSIGNED_LONG_LONG,
         MPI_FLOAT, MPI_DOUBLE, MPI_LONG_DOUBLE,
         };

@@ -95,7 +95,7 @@ char* osc_tostr(void *val, type_of_enum type_type) {
 		if (op == MPI_MIN)      sprintf(osc_str_output,"%s", "MPI_MIN");
 		if (op == MPI_SUM)      sprintf(osc_str_output,"%s", "MPI_SUM");
 		if (op == MPI_PROD)     sprintf(osc_str_output,"%s", "MPI_PROD");
-		if (op == MPI_LAND)	sprintf(osc_str_output,"%s", "MPI_LAND");
+		if (op == MPI_LAND)     sprintf(osc_str_output,"%s", "MPI_LAND");
 		if (op == MPI_BAND)     sprintf(osc_str_output,"%s", "MPI_BAND");
 		if (op == MPI_LOR)      sprintf(osc_str_output,"%s", "MPI_LOR");
 		if (op == MPI_BOR)      sprintf(osc_str_output,"%s", "MPI_BOR");
@@ -108,7 +108,7 @@ char* osc_tostr(void *val, type_of_enum type_type) {
 	if (type_type == OSC_TYPE_ATOMIC_TYPE) {
 		MPI_Datatype type = *(MPI_Datatype*)val;
 		if (type == MPI_DATATYPE_NULL)		sprintf(osc_str_output,"%s", "MPI_DATATYPE_NULL");
-		if (type == MPI_SIGNED_CHAR)		sprintf(osc_str_output,"%s", "MPI_SIGNED_CHAR");
+		if (type == MPI_CHAR)			sprintf(osc_str_output,"%s", "MPI_CHAR");
 		if (type == MPI_UNSIGNED_CHAR)		sprintf(osc_str_output,"%s", "MPI_UNSIGNED_CHAR");
 		if (type == MPI_SHORT)			sprintf(osc_str_output,"%s", "MPI_SHORT");
 		if (type == MPI_UNSIGNED_SHORT)		sprintf(osc_str_output,"%s", "MPI_UNSIGNED_SHORT");
@@ -162,7 +162,7 @@ int mpi_op_enumerate(MPI_Op op) {
 
 int mpi_dtype_enumerate(MPI_Datatype dtype) {
   if (dtype == MPI_DATATYPE_NULL)       return 0;
-  if (dtype == MPI_SIGNED_CHAR)         return 1;
+  if (dtype == MPI_CHAR)         	return 1;
   if (dtype == MPI_UNSIGNED_CHAR)       return 2;
   if (dtype == MPI_SHORT)               return 3;
   if (dtype == MPI_UNSIGNED_SHORT)      return 4;
@@ -182,7 +182,7 @@ int mpi_dtype_enumerate(MPI_Datatype dtype) {
 }
 // these must match the above routine!
 #define ENUM_OF_DMPI_DATATYPE_NULL 	0
-#define ENUM_OF_DMPI_SIGNED_CHAR	1
+#define ENUM_OF_DMPI_CHAR		1
 #define ENUM_OF_DMPI_UNSIGNED_CHAR	2
 #define ENUM_OF_DMPI_SHORT		3
 #define ENUM_OF_DMPI_UNSIGNED_SHORT	4
@@ -313,7 +313,7 @@ static void atomic_dv_record(MPI_Datatype dtype, MPI_Op op, bool failed, bool ch
 #define ATOM_FOR_CPLX_DMPI_CSWAP_GE(a,ao,b,c,absfun) if (absfun(c) >= absfun(a)) {(ao) = (b);}
 #define ATOM_FOR_CPLX_DMPI_CSWAP_GT(a,ao,b,c,absfun) if (absfun(c) >  absfun(a)) {(ao) = (b);}
 
-#define ATOM_CTYPE_FOR_DMPI_SIGNED_CHAR char
+#define ATOM_CTYPE_FOR_DMPI_CHAR char
 #define ATOM_CTYPE_FOR_DMPI_UNSIGNED_CHAR unsigned char
 #define ATOM_CTYPE_FOR_DMPI_SHORT short
 #define ATOM_CTYPE_FOR_DMPI_UNSIGNED_SHORT unsigned short
@@ -404,7 +404,7 @@ int perform_atomic_op(	MPI_Datatype dtype,
     int op_enumeration = mpi_op_enumerate(op);
     int dtype_enumeration = mpi_dtype_enumerate(dtype);
 	switch(dtype_enumeration*MPI_OP_COUNT + op_enumeration) {
-		atomic_int_ops(DMPI_SIGNED_CHAR)
+		atomic_int_ops(DMPI_CHAR)
 		atomic_int_ops(DMPI_UNSIGNED_CHAR)
 		atomic_int_ops(DMPI_SHORT)
 		atomic_int_ops(DMPI_UNSIGNED_SHORT)
@@ -438,7 +438,7 @@ int perform_atomic_cas(	MPI_Datatype dtype,
 {
     	int dtype_enumeration = mpi_dtype_enumerate(dtype);
 	switch(dtype_enumeration) {
-		atomic_case_cas(DMPI_SIGNED_CHAR)
+		atomic_case_cas(DMPI_CHAR)
 		atomic_case_cas(DMPI_UNSIGNED_CHAR)
 		atomic_case_cas(DMPI_SHORT)
 		atomic_case_cas(DMPI_UNSIGNED_SHORT)
@@ -461,7 +461,7 @@ int perform_atomic_cas(	MPI_Datatype dtype,
 static int validation_input_value(MPI_Datatype dtype, int jrank, void *val) {
 
 	if (dtype == MPI_DATATYPE_NULL) {}
-	else if (dtype == MPI_SIGNED_CHAR)
+	else if (dtype == MPI_CHAR)
 		*(char*)val = (1+jrank)*10;
 	else if (dtype == MPI_UNSIGNED_CHAR)
 		*(unsigned char*)val = (1+jrank)*10;
@@ -631,9 +631,9 @@ static void print_failure_message(MPI_Datatype datatype,
 {
 	double complex dc;
 
-	if (datatype == MPI_SIGNED_CHAR) {
-		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_SIGNED_CHAR,"%d",adr_in,buf_in,compare_in,adr_obs,adr_expect);
-		if (res_obs) PRINT_RES_COMPARISON(DMPI_SIGNED_CHAR,"%d",adr_in,buf_in,compare_in,res_obs,res_expect);
+	if (datatype == MPI_CHAR) {
+		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_CHAR,"%d",adr_in,buf_in,compare_in,adr_obs,adr_expect);
+		if (res_obs) PRINT_RES_COMPARISON(DMPI_CHAR,"%d",adr_in,buf_in,compare_in,res_obs,res_expect);
 	}
 	if (datatype == MPI_UNSIGNED_CHAR) {
 		if (adr_obs) PRINT_ADR_COMPARISON(DMPI_UNSIGNED_CHAR,"%u",adr_in,buf_in,compare_in,adr_obs,adr_expect);
@@ -846,7 +846,7 @@ int is_mpi_op_allowed(MPI_Datatype dtype, MPI_Op op) {
 	enum data_class dclass;
 
 	if (dtype == MPI_DATATYPE_NULL)       return 0;
-	if (dtype == MPI_SIGNED_CHAR)         dclass = integer;
+	if (dtype == MPI_CHAR)                dclass = integer;
 	if (dtype == MPI_UNSIGNED_CHAR)       dclass = integer;
 	if (dtype == MPI_SHORT)               dclass = integer;
 	if (dtype == MPI_UNSIGNED_SHORT)      dclass = integer;
