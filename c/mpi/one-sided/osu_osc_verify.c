@@ -708,6 +708,7 @@ static void print_failure_message(MPI_Datatype datatype,
  *   validation_results: a bitmask which is updated.  User should set to 0.
  *          |=1 when failure occurred.
  *          |=2 when no validation performed.
+ * 			|=4 when the validation succeeds.
  * Note that addr and res might be in GPU memory or in system memory.
  * Validation will only pass if both local and remote memories were initialized
  * with atomic_data_validation_setup.
@@ -816,7 +817,10 @@ int atomic_data_validation_check(
 		}
 	}
 	atomic_dv_record(datatype, op, any_errors, 1);
-	if (any_errors) *validation_results |= 1;
+	if (any_errors)
+		*validation_results |= 1;
+	else
+		*validation_results |= 4;
 	return 0;
 
 nocheck:
