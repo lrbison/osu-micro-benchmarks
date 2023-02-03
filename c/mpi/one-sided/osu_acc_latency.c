@@ -31,7 +31,7 @@ int main (int argc, char *argv[])
     char    *type_name = NULL;
     char    dtype_name_str[128];
     MPI_Datatype dtype_list[] = {
-        MPI_SIGNED_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,
+        MPI_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,
         MPI_INT, MPI_UNSIGNED, MPI_LONG_LONG, MPI_UNSIGNED_LONG_LONG,
         MPI_FLOAT, MPI_DOUBLE, MPI_LONG_DOUBLE,
         MPI_C_FLOAT_COMPLEX, MPI_C_DOUBLE_COMPLEX, MPI_C_LONG_DOUBLE_COMPLEX,
