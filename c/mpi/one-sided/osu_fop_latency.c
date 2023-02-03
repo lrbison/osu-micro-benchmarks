@@ -39,8 +39,8 @@ int main (int argc, char *argv[])
     options.show_validation = 1;
 
 
-    char op_name[32] = {'\0'};
-    char type_name[32] = {'\0'};
+    char op_name[MPI_MAX_OBJECT_NAME];
+    char type_name[MPI_MAX_OBJECT_NAME];
 
     MPI_Datatype dtype_list[] = {
         MPI_CHAR, MPI_UNSIGNED_CHAR,  MPI_SHORT, MPI_UNSIGNED_SHORT,

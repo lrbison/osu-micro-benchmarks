@@ -139,7 +139,7 @@ int main (int argc, char *argv[])
 
     for (int jtype_test=0; jtype_test<ntypes; jtype_test++)
     {
-        char dtype_name_str[128];
+        char dtype_name_str[MPI_MAX_OBJECT_NAME];
         MPI_CHECK(MPI_Type_get_name(dtype_list[jtype_test], dtype_name_str, &type_name_size));
         MPI_CHECK(MPI_Type_size(dtype_list[jtype_test], &dtype_size));
 
