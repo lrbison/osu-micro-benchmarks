@@ -8,7 +8,7 @@ upc_PROGRAMS = osu_upc_memget osu_upc_memput osu_upc_all_barrier \
 
 AM_CFLAGS = -I${top_srcdir}/c/util
 
-UTILITIES = ../util/osu_util.c ../util/osu_util.h  ../util/osu_util_pgas.c ../util/util_pgas.h
+UTILITIES = ../util/osu_util.c ../util/osu_util.h  ../util/osu_util_pgas.c ../util/osu_util_pgas.h
 
 if EMBEDDED_BUILD
      AM_CPPFLAGS = -I$(top_builddir)/../src/include \

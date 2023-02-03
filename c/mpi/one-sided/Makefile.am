@@ -1,11 +1,10 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
 NVCC = nvcc
-NVCFLAGS = -cuda -maxrregcount 32 -ccbin $(CXX) $(NVCCFLAGS)
+NVCFLAGS = -c -arch all -maxrregcount 32 -ccbin $(CXX) $(NVCCFLAGS)
 SUFFIXES = .cu .cpp
-.cu.cpp:
-	$(NVCC) $(NVCFLAGS) $(INCLUDES) $(CPPFLAGS) --output-file $@.ii $<
-	mv $@.ii $@
+.cu.o:
+	$(NVCC) $(NVCFLAGS) $(INCLUDES) $(CPPFLAGS) -o $@ $<
 
 one_sideddir = $(pkglibexecdir)/mpi/one-sided
 one_sided_PROGRAMS = osu_acc_latency osu_get_bw osu_get_latency osu_put_bibw osu_put_bw osu_put_latency
@@ -27,6 +26,7 @@ UTILITIES += ../../util/kernel.cu
 if BUILD_USE_PGI
 AM_CXXFLAGS = --nvcchost --no_preincludes
 endif
+AM_LDFLAGS = -lstdc++
 endif
 
 osu_put_latency_SOURCES = osu_put_latency.c $(UTILITIES)
