@@ -1,11 +1,10 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
 NVCC = nvcc
-NVCFLAGS = -cuda -maxrregcount 32 -ccbin $(CXX) $(NVCCFLAGS)
+NVCFLAGS = -c -arch all -maxrregcount 32 -ccbin $(CXX) $(NVCCFLAGS)
 SUFFIXES = .cu .cpp
-.cu.cpp:
-	$(NVCC) $(NVCFLAGS) $(INCLUDES) $(CPPFLAGS) --output-file $@.ii $<
-	mv $@.ii $@
+.cu.o:
+	$(NVCC) $(NVCFLAGS) $(INCLUDES) $(CPPFLAGS) -o $@ $<
 
 pt2ptdir = $(pkglibexecdir)/mpi/pt2pt
 pt2pt_PROGRAMS = osu_bibw osu_bw osu_latency osu_mbw_mr osu_multi_lat 
@@ -18,10 +17,10 @@ UTILITIES = ../../util/osu_util.c ../../util/osu_util.h \
 	../../util/osu_util_papi.c ../../util/osu_util_papi.h
 if CUDA_KERNELS
 UTILITIES += ../../util/kernel.cu
-CLEANFILES = ../../util/kernel.cpp
 if BUILD_USE_PGI
 AM_CXXFLAGS = --nvcchost --no_preincludes
 endif
+AM_LDFLAGS = -lstdc++
 endif
 
 osu_bw_SOURCES = osu_bw.c $(UTILITIES)
