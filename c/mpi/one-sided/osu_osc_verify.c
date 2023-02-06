@@ -487,13 +487,15 @@ static int validation_input_value(MPI_Datatype dtype, int jrank, void *val) {
 		*(double*)val = (1+jrank)*1.11;
 	else if (dtype == MPI_LONG_DOUBLE)
 		*(long double*)val = (1+jrank)*1.11L;
+#ifdef I
 	else if (dtype == MPI_C_FLOAT_COMPLEX)
-		*(float complex*)val = CMPLXF( (1+jrank)*1.11f, (1+jrank*-0.5f) );
+		*(float complex*)val = (1+jrank)*1.11f, (1+jrank*-0.5f)*I;
 	else if (dtype == MPI_C_DOUBLE_COMPLEX) {
-		*(double complex*)val = CMPLX( (1+jrank)*1.11, (1+jrank*-0.5) );
+		*(double complex*)val = (1+jrank)*1.11, (1+jrank*-0.5)*I;
 	}
 	else if (dtype == MPI_C_LONG_DOUBLE_COMPLEX)
-		*(long double complex*)val = CMPLXL( (1+jrank)*1.11L, (1+jrank*-0.5L) );
+		*(long double complex*)val = (1+jrank)*1.11L, (1+jrank*-0.5L)*I;
+#endif
 	else {
 		fprintf(stderr, "No initial value defined, cannot perform data validation "
 				"on atomic operations using %s\n",

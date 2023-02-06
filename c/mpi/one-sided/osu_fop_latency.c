@@ -28,7 +28,7 @@ void run_fop_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type, M
 
 int main (int argc, char *argv[])
 {
-    int         rank,nprocs;
+    int         rank,nprocs,jdata_type,jop,jrank_print;
     int         po_ret = PO_OKAY;
 
     options.win = WIN_ALLOCATE;
@@ -132,8 +132,8 @@ int main (int argc, char *argv[])
         ntypes = 1;
         nops = 1;
     }
-    for (int jdata_type = 0; jdata_type < ntypes; jdata_type++) {
-    for (int jop = 0; jop < nops; jop++) {
+    for (jdata_type = 0; jdata_type < ntypes; jdata_type++) {
+    for (jop = 0; jop < nops; jop++) {
 
     MPI_Type_get_name(dtype_list[jdata_type], type_name, &type_name_size);
 
@@ -170,7 +170,7 @@ int main (int argc, char *argv[])
     }}
 
     if (options.validate) {
-        for (int jrank_print=0; jrank_print<2; jrank_print++) {
+        for (jrank_print=0; jrank_print<2; jrank_print++) {
             if (jrank_print == rank) {
                 printf("-------------------------------------------\n");
                 printf("Atomic Data Validation results for Rank=%d:\n",rank);

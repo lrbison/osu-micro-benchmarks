@@ -52,7 +52,7 @@ static const char* mpi_types_index_to_name(int type_index) {
 
 int main (int argc, char *argv[])
 {
-    int         rank,nprocs;
+    int         rank,nprocs,jtype_test,jrank_print;
     int         po_ret = PO_OKAY;
 
     MPI_Datatype dtype_list[] = {
@@ -138,7 +138,7 @@ int main (int argc, char *argv[])
         ntypes = 1;
     }
 
-    for (int jtype_test=0; jtype_test<ntypes; jtype_test++)
+    for (jtype_test=0; jtype_test<ntypes; jtype_test++)
     {
         char dtype_name_str[MPI_MAX_OBJECT_NAME];
         MPI_CHECK(MPI_Type_get_name(dtype_list[jtype_test], dtype_name_str, &type_name_size));
@@ -170,7 +170,7 @@ int main (int argc, char *argv[])
     }
 
     if (options.validate) {
-        for (int jrank_print=0; jrank_print<2; jrank_print++) {
+        for (jrank_print=0; jrank_print<2; jrank_print++) {
             if (jrank_print == rank) {
                 printf("-------------------------------------------\n");
                 printf("Atomic Data Validation results for Rank=%d:\n",rank);
