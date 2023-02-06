@@ -779,13 +779,14 @@ void run_cas_with_pscw(int rank, enum WINDOW win_type, MPI_Datatype data_type)
 
 void gather_validation(int rank, int nranks) {
     int gathered_flags[nranks];
+    int i;
 
     if (!options.validate) return;
 
     MPI_CHECK(MPI_Gather(&validation_error_flag, 1, MPI_INT, &gathered_flags, 1, MPI_INT, 0, MPI_COMM_WORLD));
     if (rank == 0) {
         validation_error_flag = 0;
-        for (int i; i<nranks; i++)
+        for (i=0; i<nranks; i++)
             validation_error_flag |= gathered_flags[i];
     }
 }
