@@ -46,6 +46,7 @@ int main (int argc, char *argv[])
     int nops = sizeof(op_list)/sizeof(op_list[0]);
     int ntypes = sizeof(dtype_list)/sizeof(dtype_list[0]);
     int type_name_size = 0;
+    int jtype_test, jop, jrank_print;
 
 
 #if MPI_VERSION >= 3
@@ -133,8 +134,8 @@ int main (int argc, char *argv[])
         nops = 1;
     }
 
-    for (int jtype_test=0; jtype_test<ntypes; jtype_test++) {
-    for (int jop = 0; jop < nops; jop++) {
+    for (jtype_test=0; jtype_test<ntypes; jtype_test++) {
+    for (jop = 0; jop < nops; jop++) {
         MPI_CHECK(MPI_Type_get_name(dtype_list[jtype_test], dtype_name_str, &type_name_size));
 
         if ( !is_mpi_op_allowed(dtype_list[jtype_test], op_list[jop]) ) {
@@ -175,7 +176,7 @@ int main (int argc, char *argv[])
     } }
 
     if (options.validate) {
-        for (int jrank_print=0; jrank_print<2; jrank_print++) {
+        for (jrank_print=0; jrank_print<2; jrank_print++) {
             if (jrank_print == rank) {
                 printf("-------------------------------------------\n");
                 printf("Atomic Data Validation results for Rank=%d:\n",rank);
