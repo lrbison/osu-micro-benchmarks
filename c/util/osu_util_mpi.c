@@ -1317,9 +1317,11 @@ uint8_t validate_data(void* r_buf, size_t size, int num_procs,
                 }
                 if (memcmp(temp_char_r_buf, expected_buffer, num_elements)) {
                     free(temp_r_buf);
+                    free(expected_buffer);
                     return 1;
                 }
                 free(temp_r_buf);
+                free(expected_buffer);
                 return 0;
             }
             break;
