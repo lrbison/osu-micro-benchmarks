@@ -6,6 +6,7 @@ configure.in
 configure
 .vscode
 autom4te.cache
+aclocal.m4
 c/mpi/collective/osu_allgather
 c/mpi/collective/osu_allgatherv
 c/mpi/collective/osu_allreduce
