@@ -731,8 +731,8 @@ int atomic_data_validation_check(
 	char expected_local_addr[MAX_ATOM_BYTES],   dummy_remote_addr[MAX_ATOM_BYTES];
 	char expected_local_result[MAX_ATOM_BYTES];
 
-	char local_addr_in_sysmem[buf_size];
-	char local_result_in_sysmem[buf_size];
+	char *local_addr_in_sysmem = NULL;
+	char *local_result_in_sysmem = NULL;
 	int dtype_size;
 	size_t natoms;
 	int jatom;
@@ -778,6 +778,21 @@ int atomic_data_validation_check(
 	// }
 
 	err = 0;
+	local_addr_in_sysmem = malloc(buf_size);
+	if (!local_addr_in_sysmem) {
+		fprintf(stderr, "Failed to allocate local_addr_in_sysmem buffer of size %lu\n", buf_size);
+		err = -1;
+		goto error;
+	}
+
+	local_result_in_sysmem = malloc(buf_size);
+	if (!local_result_in_sysmem) {
+		fprintf(stderr, "Failed to allocate local_result_in_sysmem buffer of size %lu\n", buf_size);
+		free(local_addr_in_sysmem);
+		err = -1;
+		goto error;
+	}
+
 	if (check_addr)   err |= get_hmem_buffer(local_addr_in_sysmem, addr, buf_size );
 	if (check_result) err |= get_hmem_buffer(local_result_in_sysmem, res, buf_size );
 	
@@ -823,6 +838,9 @@ int atomic_data_validation_check(
 		*validation_results |= 1;
 	else
 		*validation_results |= 4;
+
+	free(local_addr_in_sysmem);
+	free(local_result_in_sysmem);
 	return 0;
 
 nocheck:
