@@ -354,7 +354,7 @@ void print_help_message (int rank)
         fprintf(stdout, "                              Options: single, multiple\n");
     }
 
-    if (accel_enabled && (options.subtype != LAT_MT) && (options.subtype != LAT_MP)) {
+    if (accel_enabled && (options.subtype != LAT_MP)) {
         fprintf(stdout, "  -d, --accelerator  TYPE     use accelerator device buffers, which can be of TYPE `cuda', \n");
         fprintf(stdout, "                              `managed', `openacc', or `rocm' (uses standard host buffers if not specified)\n");
     }
