@@ -403,7 +403,7 @@ void set_benchmark_name (const char * name)
 void enable_accel_support (void)
 {
     accel_enabled = ((CUDA_ENABLED || OPENACC_ENABLED || ROCM_ENABLED) &&
-            !(options.subtype == LAT_MT || options.subtype == LAT_MP));
+                     !(options.subtype == LAT_MP));
 }
 
 int process_options (int argc, char *argv[])
@@ -454,7 +454,7 @@ int process_options (int argc, char *argv[])
             }
         } else{
             if (options.subtype == LAT_MT) {
-                optstring = "+:hvm:x:i:t:cu:G:D:";
+                optstring = "+:hvm:x:i:t:d:cu:G:D:";
             } else if (options.subtype == LAT_MP) {
                 optstring = "+:hvm:x:i:t:cu:G:D:P:";
             } else if (options.subtype == BW) {

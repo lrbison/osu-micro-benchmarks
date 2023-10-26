@@ -354,7 +354,7 @@ void print_help_message (int rank)
         fprintf(stdout, "                              Options: single, multiple\n");
     }
 
-    if (accel_enabled && (options.subtype != LAT_MT) && (options.subtype != LAT_MP)) {
+    if (accel_enabled && (options.subtype != LAT_MP)) {
         fprintf(stdout, "  -d, --accelerator  TYPE     use accelerator device buffers, which can be of TYPE `cuda', \n");
         fprintf(stdout, "                              `managed', `openacc', or `rocm' (uses standard host buffers if not specified)\n");
     }
@@ -928,13 +928,15 @@ void omb_ddt_append_stats(size_t omb_ddt_transmit_size)
 void set_buffer_pt2pt (void * buffer, int rank, enum accel_type type, int data,
                        size_t size)
 {
+    set_buffer_pt2pt_mul(buffer, rank, type, data, size, 1);
+}
+
+void set_buffer_pt2pt_mul (void * buffer, int rank, enum accel_type type, int data,
+                           size_t size, int pairs)
+{
     char buf_type = 'H';
 
-    if (options.bench == MBW_MR) {
-        buf_type = (rank < options.pairs) ? options.src : options.dst;
-    } else {
-        buf_type = (rank == 0) ? options.src : options.dst;
-    }
+    buf_type = (rank < pairs) ? options.src : options.dst;
 
     switch (buf_type) {
         case 'H':

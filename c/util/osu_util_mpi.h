@@ -86,6 +86,8 @@ void free_buffer (void * buffer, enum accel_type type);
 void set_buffer (void * buffer, enum accel_type type, int data, size_t size);
 void set_buffer_pt2pt (void * buffer, int rank, enum accel_type type, int data,
                        size_t size);
+void set_buffer_pt2pt_mul (void * buffer, int rank, enum accel_type type, int data,
+                           size_t size, int pairs);
 void set_buffer_validation(void* s_buf, void* r_buf, size_t size,
                            enum accel_type type, int iter);
 void set_buffer_float (float * buffer, int is_send_buf, size_t size, int iter,

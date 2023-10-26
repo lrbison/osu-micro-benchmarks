@@ -388,8 +388,8 @@ double calc_bw(int rank, int size, int num_pairs, int window_size, char **s_buf,
     omb_ddt_size = omb_ddt_get_size(size);
     omb_ddt_transmit_size = omb_ddt_assign(&omb_ddt_datatype, MPI_CHAR, size);
     if (options.buf_num == SINGLE) {
-        set_buffer_pt2pt(s_buf[0], rank, options.accel, 'a', size);
-        set_buffer_pt2pt(r_buf[0], rank, options.accel, 'b', size);
+        set_buffer_pt2pt_mul(s_buf[0], rank, options.accel, 'a', size, num_pairs);
+        set_buffer_pt2pt_mul(r_buf[0], rank, options.accel, 'b', size, num_pairs);
     }
 
 #ifdef _ENABLE_CUDA_KERNEL_
@@ -408,8 +408,8 @@ double calc_bw(int rank, int size, int num_pairs, int window_size, char **s_buf,
         }
 
         for (i = 0; i < window_size; i++) {
-            set_buffer_pt2pt(s_buf[i], rank, options.accel, 'a', size);
-            set_buffer_pt2pt(r_buf[i], rank, options.accel, 'b', size);
+            set_buffer_pt2pt_mul(s_buf[i], rank, options.accel, 'a', size, num_pairs);
+            set_buffer_pt2pt_mul(r_buf[i], rank, options.accel, 'b', size, num_pairs);
         }
     }
 
