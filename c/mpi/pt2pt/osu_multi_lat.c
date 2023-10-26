@@ -150,8 +150,8 @@ static int multi_latency(int rank, int pairs)
         }
 
         omb_ddt_transmit_size = omb_ddt_assign(&omb_ddt_datatype, MPI_CHAR, size);
-        set_buffer_pt2pt(s_buf, rank, options.accel, 'a', size);
-        set_buffer_pt2pt(r_buf, rank, options.accel, 'b', size);
+        set_buffer_pt2pt_mul(s_buf, rank, options.accel, 'a', size, pairs);
+        set_buffer_pt2pt_mul(r_buf, rank, options.accel, 'b', size, pairs);
 
         if (size > LARGE_MESSAGE_SIZE) {
             options.iterations = options.iterations_large;
